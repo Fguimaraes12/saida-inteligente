@@ -101,9 +101,8 @@ npm start
 
 | Nome | Função |
 |---|---|
-| `_______` | `_______` |
-| `_______` | `_______` |
-| `_______` | `_______` |
+| `Felipe Guimarães` | `Desenvolvimento do software` |
+| `Francis lean` | `Desenvolvimento do software` |
 
 ---
 
@@ -113,4 +112,4 @@ Este projeto está sob a licença MIT — veja o arquivo [LICENSE](./LICENSE) pa
 
 ---
 
-<p align="center">Projeto desenvolvido como parte das Atividades Práticas Interdisciplinares de Extensão II — Sistemas de Informação</p>
+<p align="center">Projeto desenvolvido como parte das Atividades Práticas Interdisciplinares de Extensão II — Sistemas de Informação Universidade 7 de setembro</p>
