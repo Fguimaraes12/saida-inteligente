@@ -101,8 +101,8 @@ npm start
 
 | Nome | Função |
 |---|---|
-| `Felipe Guimarães` | `Desenvolvimento do software` |
-| `Francis lean` | `Desenvolvimento do software` |
+| `Fguimaraes12` | `Desenvolvimento do software` |
+| `Nato dev` | `Desenvolvimento do software` |
 
 ---
 
