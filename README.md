@@ -68,12 +68,10 @@ flowchart LR
 
 ## 🛠️ Tecnologias
 
-> _Preencher com a stack utilizada no projeto (ex: React, Node.js, Express, PostgreSQL, Socket.io, etc.)_
-
-- Frontend: `_______`
-- Backend: `_______`
-- Banco de dados: `_______`
-- Comunicação em tempo real: `_______`
+- Frontend: React + TypeScript + Vite
+- Backend: Node.js + Express + TypeScript
+- Banco de dados: PostgreSQL (planejado para uma etapa posterior)
+- Comunicação em tempo real: Socket.io (planejado para uma etapa posterior)
 
 ---
 
@@ -86,14 +84,19 @@ git clone https://github.com/seu-usuario/saida-inteligente.git
 # Acesse a pasta
 cd saida-inteligente
 
-# Instale as dependências
+# Terminal 1: backend
+cd backend
 npm install
+npm run dev
 
-# Rode o projeto
-npm start
+# Terminal 2: frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-> _Ajustar os comandos acima conforme a stack final do projeto._
+O backend inicia em `http://localhost:3000` por padrão e disponibiliza `GET /health`.
+Ao iniciar o frontend, o Vite mostra a URL local da aplicação.
 
 ---
 
