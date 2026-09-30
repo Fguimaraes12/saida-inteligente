@@ -79,7 +79,7 @@ flowchart LR
 
 ```bash
 # Clone o repositório
-[git clone https://github.com/seu-usuario/saida-inteligente.git](https://github.com/Fguimaraes12/saida-inteligente.git)
+git clone https://github.com/Fguimaraes12/saida-inteligente.git
 
 # Acesse a pasta
 cd saida-inteligente
