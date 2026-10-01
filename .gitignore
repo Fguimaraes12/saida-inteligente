@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vite/
+backend/src/generated/prisma/
 *.tsbuildinfo
 .env
 .env.*
