@@ -70,7 +70,7 @@ flowchart LR
 
 - Frontend: React + TypeScript + Vite
 - Backend: Node.js + Express + TypeScript
-- Banco de dados: PostgreSQL (planejado para uma etapa posterior)
+- Banco de dados: PostgreSQL 17.11 (Docker Compose no ambiente de desenvolvimento)
 - Comunicação em tempo real: Socket.io (planejado para uma etapa posterior)
 
 ---
@@ -97,6 +97,50 @@ npm run dev
 
 O backend inicia em `http://localhost:3000` por padrão e disponibiliza `GET /health`.
 Ao iniciar o frontend, o Vite mostra a URL local da aplicação.
+
+---
+
+## PostgreSQL para desenvolvimento local
+
+### Pré-requisito
+
+Docker com Docker Compose disponível.
+
+### Configuração
+
+Crie o arquivo `.env` local na raiz do projeto com base em [`.env.example`](./.env.example). Defina uma senha local segura para `POSTGRES_PASSWORD`; o arquivo `.env` não é versionado.
+
+### Inicialização
+
+```bash
+docker compose up -d
+```
+
+### Verificação
+
+```bash
+docker compose ps
+```
+
+### Logs
+
+```bash
+docker compose logs postgres
+```
+
+### Encerramento
+
+```bash
+docker compose down
+```
+
+### Reset completo
+
+```bash
+docker compose down -v
+```
+
+`-v` remove o volume e **APAGA os dados locais do PostgreSQL**.
 
 ---
 
