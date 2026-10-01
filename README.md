@@ -70,7 +70,7 @@ flowchart LR
 
 - Frontend: React + TypeScript + Vite
 - Backend: Node.js + Express + TypeScript
-- Banco de dados: PostgreSQL (planejado para uma etapa posterior)
+- Banco de dados: PostgreSQL 17.11 (Docker Compose no ambiente de desenvolvimento) + Prisma ORM
 - Comunicação em tempo real: Socket.io (planejado para uma etapa posterior)
 
 ---
@@ -84,12 +84,19 @@ git clone https://github.com/Fguimaraes12/saida-inteligente.git
 # Acesse a pasta
 cd saida-inteligente
 
-# Terminal 1: backend
+# Terminal 1: PostgreSQL
+docker compose up -d
+
+# Terminal 2: backend
 cd backend
 npm install
+
+# Antes de gerar o Prisma Client, crie backend/.env com base em backend/.env.example
+# e configure DATABASE_URL com a senha local do PostgreSQL.
+npm run prisma:generate
 npm run dev
 
-# Terminal 2: frontend
+# Terminal 3: frontend
 cd frontend
 npm install
 npm run dev
@@ -97,6 +104,56 @@ npm run dev
 
 O backend inicia em `http://localhost:3000` por padrão e disponibiliza `GET /health`.
 Ao iniciar o frontend, o Vite mostra a URL local da aplicação.
+
+### Configuração do backend
+
+O Prisma é a camada de acesso do backend ao PostgreSQL. Crie `backend/.env` a partir de [`backend/.env.example`](./backend/.env.example) e configure a `DATABASE_URL` com a senha local do PostgreSQL antes de executar `npm run prisma:generate`. Esse arquivo não é versionado.
+
+Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend valida a conexão com o banco antes de abrir a porta HTTP.
+
+---
+
+## PostgreSQL para desenvolvimento local
+
+### Pré-requisito
+
+Docker com Docker Compose disponível.
+
+### Configuração
+
+Crie o arquivo `.env` local na raiz do projeto com base em [`.env.example`](./.env.example). Defina uma senha local segura para `POSTGRES_PASSWORD`; o arquivo `.env` não é versionado.
+
+### Inicialização
+
+```bash
+docker compose up -d
+```
+
+### Verificação
+
+```bash
+docker compose ps
+```
+
+### Logs
+
+```bash
+docker compose logs postgres
+```
+
+### Encerramento
+
+```bash
+docker compose down
+```
+
+### Reset completo
+
+```bash
+docker compose down -v
+```
+
+`-v` remove o volume e **APAGA os dados locais do PostgreSQL**.
 
 ---
 
