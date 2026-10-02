@@ -34,7 +34,7 @@ Desenvolver e implantar um sistema de chamada em tempo real para a saída dos al
 
 | Perfil | O que faz |
 |---|---|
-| 🛠️ **Gestão** | Cadastra, edita e remove alunos da base do sistema |
+| 🛠️ **Gestão** | Cadastra, edita, ativa e inativa alunos da base do sistema |
 | 🚪 **Porteiro** | Localiza o aluno informado pelo responsável e registra a chamada |
 | 🖥️ **Sala** | Exibe em tempo real, na TV/projetor, a lista de alunos chamados da turma |
 
@@ -52,12 +52,38 @@ flowchart LR
 
 ---
 
+## Modelagem de dados
+
+O banco modela a estrutura escolar atual e preserva os registros operacionais e de auditoria. `Segmento` (por exemplo, Fundamental I) possui várias `Sala`s; cada `Sala` pertence a um único segmento e não pode repetir a mesma `serie` dentro dele. Uma Sala possui vários `Aluno`s, cuja `matricula` é única no sistema.
+
+```mermaid
+erDiagram
+    Segmento ||--o{ Sala : possui
+    Segmento o|--o| Usuario : "login SALA geral"
+    Sala ||--o{ Aluno : possui
+    Sala o|--o| Usuario : "login SALA individual"
+    Aluno ||--o{ Liberacao : possui
+    Usuario ||--o{ Liberacao : registra
+    Aluno ||--o{ Gerenciamento : auditado_em
+    Usuario ||--o{ Gerenciamento : executa
+```
+
+- `Usuario` usa as roles `GESTAO`, `PORTEIRO` e `SALA`. Para `SALA`, o login individual aponta para uma `Sala`; o login geral aponta para um `Segmento`. O escopo geral existe porque, na implementação inicial, alunos de várias Salas do mesmo Segmento podem aguardar liberação no mesmo ambiente. A API e o Socket.io usarão esse escopo futuramente. Para `GESTAO` e `PORTEIRO`, ambos os vínculos devem permanecer nulos; para `SALA`, deve existir exatamente um dos dois vínculos.
+- `Aluno` tem somente a Sala atual em `salaId`: a progressão anual futura poderá atualizá-lo em lote. A remoção normal é lógica, com `ativo = false`; alunos do último ano também podem ser inativados.
+- `Liberacao` é um registro histórico permanente, registrado por um usuário Porteiro. A unicidade de `alunoId` e `dataLiberacao` garante no máximo uma liberação por aluno a cada dia.
+- `Gerenciamento` é a auditoria administrativa das ações de cadastro, edição, inativação, reativação e importação, sem duplicar dados de usuário ou aluno.
+- As relações estruturais e históricas usam `Restrict` em exclusões para preservar a integridade: não se exclui um Segmento com Salas, uma Sala com Alunos, nem Alunos ou Usuários já referenciados no histórico.
+
+Detalhes adicionais de operação poderão ser documentados futuramente em [`/docs`](./docs).
+
+---
+
 ## ✨ Benefícios
 
 **Para a instituição**
 - Otimização da logística e aumento da segurança.
 - Transparência na liberação dos alunos, gerando percepção de eficiência para os pais.
-- Registro digital e editável do horário exato de liberação de cada estudante — sem custos extras de infraestrutura.
+- Registro digital e consultável do horário exato de liberação de cada estudante — sem custos extras de infraestrutura.
 
 **Para a equipe de desenvolvimento**
 - Vivência prática de todo o ciclo de vida do desenvolvimento de software.
@@ -110,6 +136,52 @@ Ao iniciar o frontend, o Vite mostra a URL local da aplicação.
 O Prisma é a camada de acesso do backend ao PostgreSQL. Crie `backend/.env` a partir de [`backend/.env.example`](./backend/.env.example) e configure a `DATABASE_URL` com a senha local do PostgreSQL antes de executar `npm run prisma:generate`. Esse arquivo não é versionado.
 
 Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend valida a conexão com o banco antes de abrir a porta HTTP.
+
+### Dados iniciais do MVP
+
+Depois de aplicar as migrations e configurar `SEED_DEFAULT_PASSWORD` em `backend/.env`, execute o seed a partir de `backend`:
+
+```bash
+npm run prisma:seed
+```
+
+O seed cria de forma idempotente os segmentos Educação Infantil, Fundamental I, Fundamental II e Ensino Médio, com 16 Salas estruturais. `Sala.serie` permanece numérica e sua apresentação depende do segmento: na Educação Infantil, `2` a `5` representam Infantil II a V; no Fundamental I e II, representam o respectivo ano; e no Ensino Médio, `1` a `3` representam a respectiva série.
+
+Também são criados os 22 usuários de bootstrap previstos para o MVP. A senha compartilhada vem exclusivamente de `SEED_DEFAULT_PASSWORD` e é convertida em hash Argon2id antes de persistir; nenhuma senha pura é armazenada. Essa senha comum é uma solução **temporária** para bootstrap de desenvolvimento/MVP: o projeto deve evoluir para provisionamento e troca individual de credenciais.
+
+O seed é idempotente, preserva registros estruturais existentes e não deve ser executado em produção. Ele não cria Alunos, Liberações ou Gerenciamentos.
+
+### Validação e tratamento de erros
+
+As entradas da API são validadas com Zod antes de chegarem aos controllers. Os schemas específicos de cada endpoint ficam em `backend/src/schemas`.
+
+As respostas de erro seguem este contrato:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Dados inválidos.",
+    "details": []
+  }
+}
+```
+
+Erros esperados usam `AppError`. Erros inesperados retornam `INTERNAL_ERROR`; detalhes técnicos permanecem somente nos logs do servidor.
+
+---
+
+## Migrations do Prisma
+
+O arquivo [`backend/prisma/schema.prisma`](./backend/prisma/schema.prisma) é a fonte da modelagem do banco. O histórico versionado das alterações fica em [`backend/prisma/migrations`](./backend/prisma/migrations).
+
+Com o PostgreSQL local em execução, crie e aplique uma migration de desenvolvimento a partir da pasta `backend`:
+
+```bash
+npm run prisma:migrate:dev -- --name nome_da_migration
+```
+
+Migrations já compartilhadas não devem ser editadas arbitrariamente. O comando `prisma db push` não faz parte do fluxo normal deste projeto.
 
 ---
 
