@@ -137,6 +137,20 @@ O Prisma é a camada de acesso do backend ao PostgreSQL. Crie `backend/.env` a p
 
 Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend valida a conexão com o banco antes de abrir a porta HTTP.
 
+### Dados iniciais do MVP
+
+Depois de aplicar as migrations e configurar `SEED_DEFAULT_PASSWORD` em `backend/.env`, execute o seed a partir de `backend`:
+
+```bash
+npm run prisma:seed
+```
+
+O seed cria de forma idempotente os segmentos Educação Infantil, Fundamental I, Fundamental II e Ensino Médio, com 16 Salas estruturais. `Sala.serie` permanece numérica e sua apresentação depende do segmento: na Educação Infantil, `2` a `5` representam Infantil II a V; no Fundamental I e II, representam o respectivo ano; e no Ensino Médio, `1` a `3` representam a respectiva série.
+
+Também são criados os 22 usuários de bootstrap previstos para o MVP. A senha compartilhada vem exclusivamente de `SEED_DEFAULT_PASSWORD` e é convertida em hash Argon2id antes de persistir; nenhuma senha pura é armazenada. Essa senha comum é uma solução **temporária** para bootstrap de desenvolvimento/MVP: o projeto deve evoluir para provisionamento e troca individual de credenciais.
+
+O seed é idempotente, preserva registros estruturais existentes e não deve ser executado em produção. Ele não cria Alunos, Liberações ou Gerenciamentos.
+
 ### Validação e tratamento de erros
 
 As entradas da API são validadas com Zod antes de chegarem aos controllers. Os schemas específicos de cada endpoint ficam em `backend/src/schemas`.
