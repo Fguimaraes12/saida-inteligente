@@ -137,6 +137,24 @@ O Prisma é a camada de acesso do backend ao PostgreSQL. Crie `backend/.env` a p
 
 Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend valida a conexão com o banco antes de abrir a porta HTTP.
 
+### Validação e tratamento de erros
+
+As entradas da API são validadas com Zod antes de chegarem aos controllers. Os schemas específicos de cada endpoint ficam em `backend/src/schemas`.
+
+As respostas de erro seguem este contrato:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Dados inválidos.",
+    "details": []
+  }
+}
+```
+
+Erros esperados usam `AppError`. Erros inesperados retornam `INTERNAL_ERROR`; detalhes técnicos permanecem somente nos logs do servidor.
+
 ---
 
 ## Migrations do Prisma
