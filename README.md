@@ -139,6 +139,20 @@ Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend va
 
 ---
 
+## Migrations do Prisma
+
+O arquivo [`backend/prisma/schema.prisma`](./backend/prisma/schema.prisma) é a fonte da modelagem do banco. O histórico versionado das alterações fica em [`backend/prisma/migrations`](./backend/prisma/migrations).
+
+Com o PostgreSQL local em execução, crie e aplique uma migration de desenvolvimento a partir da pasta `backend`:
+
+```bash
+npm run prisma:migrate:dev -- --name nome_da_migration
+```
+
+Migrations já compartilhadas não devem ser editadas arbitrariamente. O comando `prisma db push` não faz parte do fluxo normal deste projeto.
+
+---
+
 ## PostgreSQL para desenvolvimento local
 
 ### Pré-requisito
