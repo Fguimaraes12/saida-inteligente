@@ -6,3 +6,84 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  GESTAO
+  PORTEIRO
+  SALA
+}
+
+enum AcaoGerenciamento {
+  CADASTRO
+  EDICAO
+  INATIVACAO
+  REATIVACAO
+  IMPORTACAO
+}
+
+model Segmento {
+  id            Int      @id @default(autoincrement())
+  nome          String   @unique
+  salas         Sala[]
+  usuarioGeral  Usuario? @relation("UsuarioSegmento")
+}
+
+model Sala {
+  id             Int       @id @default(autoincrement())
+  serie          Int
+  segmentoId     Int
+  segmento       Segmento  @relation(fields: [segmentoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  alunos         Aluno[]
+  usuarioSala    Usuario?  @relation("UsuarioSala")
+
+  @@unique([segmentoId, serie])
+}
+
+model Usuario {
+  id                         Int            @id @default(autoincrement())
+  usuario                    String         @unique
+  senhaHash                  String
+  role                       Role
+  salaId                     Int?           @unique
+  segmentoId                 Int?           @unique
+  sala                       Sala?          @relation("UsuarioSala", fields: [salaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  segmento                   Segmento?      @relation("UsuarioSegmento", fields: [segmentoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  liberacoesRegistradas      Liberacao[]    @relation("LiberacoesRegistradas")
+  gerenciamentosExecutados   Gerenciamento[]
+}
+
+model Aluno {
+  id              Int             @id @default(autoincrement())
+  matricula       String          @unique
+  nome            String
+  ativo           Boolean         @default(true)
+  salaId          Int
+  sala            Sala            @relation(fields: [salaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  liberacoes      Liberacao[]
+  gerenciamentos  Gerenciamento[]
+
+  @@index([salaId, ativo])
+}
+
+model Liberacao {
+  id             Int       @id @default(autoincrement())
+  alunoId        Int
+  porteiroId     Int
+  dataHora       DateTime  @default(now()) @db.Timestamptz(3)
+  dataLiberacao  DateTime  @db.Date
+  aluno          Aluno     @relation(fields: [alunoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  porteiro       Usuario   @relation("LiberacoesRegistradas", fields: [porteiroId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([alunoId, dataLiberacao])
+  @@index([dataLiberacao])
+}
+
+model Gerenciamento {
+  id         Int                @id @default(autoincrement())
+  usuarioId  Int
+  alunoId    Int
+  acao       AcaoGerenciamento
+  dataHora   DateTime           @default(now()) @db.Timestamptz(3)
+  usuario    Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  aluno      Aluno              @relation(fields: [alunoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+}

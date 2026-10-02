@@ -34,7 +34,7 @@ Desenvolver e implantar um sistema de chamada em tempo real para a saída dos al
 
 | Perfil | O que faz |
 |---|---|
-| 🛠️ **Gestão** | Cadastra, edita e remove alunos da base do sistema |
+| 🛠️ **Gestão** | Cadastra, edita, ativa e inativa alunos da base do sistema |
 | 🚪 **Porteiro** | Localiza o aluno informado pelo responsável e registra a chamada |
 | 🖥️ **Sala** | Exibe em tempo real, na TV/projetor, a lista de alunos chamados da turma |
 
@@ -52,12 +52,38 @@ flowchart LR
 
 ---
 
+## Modelagem de dados
+
+O banco modela a estrutura escolar atual e preserva os registros operacionais e de auditoria. `Segmento` (por exemplo, Fundamental I) possui várias `Sala`s; cada `Sala` pertence a um único segmento e não pode repetir a mesma `serie` dentro dele. Uma Sala possui vários `Aluno`s, cuja `matricula` é única no sistema.
+
+```mermaid
+erDiagram
+    Segmento ||--o{ Sala : possui
+    Segmento o|--o| Usuario : "login SALA geral"
+    Sala ||--o{ Aluno : possui
+    Sala o|--o| Usuario : "login SALA individual"
+    Aluno ||--o{ Liberacao : possui
+    Usuario ||--o{ Liberacao : registra
+    Aluno ||--o{ Gerenciamento : auditado_em
+    Usuario ||--o{ Gerenciamento : executa
+```
+
+- `Usuario` usa as roles `GESTAO`, `PORTEIRO` e `SALA`. Para `SALA`, o login individual aponta para uma `Sala`; o login geral aponta para um `Segmento`. O escopo geral existe porque, na implementação inicial, alunos de várias Salas do mesmo Segmento podem aguardar liberação no mesmo ambiente. A API e o Socket.io usarão esse escopo futuramente. Para `GESTAO` e `PORTEIRO`, ambos os vínculos devem permanecer nulos; para `SALA`, deve existir exatamente um dos dois vínculos.
+- `Aluno` tem somente a Sala atual em `salaId`: a progressão anual futura poderá atualizá-lo em lote. A remoção normal é lógica, com `ativo = false`; alunos do último ano também podem ser inativados.
+- `Liberacao` é um registro histórico permanente, registrado por um usuário Porteiro. A unicidade de `alunoId` e `dataLiberacao` garante no máximo uma liberação por aluno a cada dia.
+- `Gerenciamento` é a auditoria administrativa das ações de cadastro, edição, inativação, reativação e importação, sem duplicar dados de usuário ou aluno.
+- As relações estruturais e históricas usam `Restrict` em exclusões para preservar a integridade: não se exclui um Segmento com Salas, uma Sala com Alunos, nem Alunos ou Usuários já referenciados no histórico.
+
+Detalhes adicionais de operação poderão ser documentados futuramente em [`/docs`](./docs).
+
+---
+
 ## ✨ Benefícios
 
 **Para a instituição**
 - Otimização da logística e aumento da segurança.
 - Transparência na liberação dos alunos, gerando percepção de eficiência para os pais.
-- Registro digital e editável do horário exato de liberação de cada estudante — sem custos extras de infraestrutura.
+- Registro digital e consultável do horário exato de liberação de cada estudante — sem custos extras de infraestrutura.
 
 **Para a equipe de desenvolvimento**
 - Vivência prática de todo o ciclo de vida do desenvolvimento de software.
