@@ -135,6 +135,8 @@ Ao iniciar o frontend, o Vite mostra a URL local da aplicação.
 
 O Prisma é a camada de acesso do backend ao PostgreSQL. Crie `backend/.env` a partir de [`backend/.env.example`](./backend/.env.example) e configure a `DATABASE_URL` com a senha local do PostgreSQL antes de executar `npm run prisma:generate`. Esse arquivo não é versionado.
 
+Para autenticação, defina também `JWT_SECRET` com um segredo forte e exclusivo por ambiente. `JWT_EXPIRES_IN` define a validade do access token e aceita uma duração inteira em segundos, minutos, horas ou dias (por exemplo, `8h`, o padrão de desenvolvimento).
+
 Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend valida a conexão com o banco antes de abrir a porta HTTP.
 
 ### Dados iniciais do MVP
@@ -168,6 +170,54 @@ As respostas de erro seguem este contrato:
 ```
 
 Erros esperados usam `AppError`. Erros inesperados retornam `INTERNAL_ERROR`; detalhes técnicos permanecem somente nos logs do servidor.
+
+### Autenticação
+
+O login é feito por `POST /auth/login`:
+
+```json
+{
+  "usuario": "portaria",
+  "senha": "..."
+}
+```
+
+Com credenciais válidas, a API responde `200 OK` e retorna apenas os dados públicos necessários para o frontend:
+
+```json
+{
+  "usuario": {
+    "id": 2,
+    "usuario": "portaria",
+    "role": "PORTEIRO",
+    "salaId": null,
+    "segmentoId": null
+  }
+}
+```
+
+O token de acesso é enviado exclusivamente no cookie `access_token`, com `HttpOnly`, `SameSite=Lax`, `Secure` habilitado somente em produção, `Path=/` e expiração igual à configurada em `JWT_EXPIRES_IN` (padrão: `8h`). `Path=/` torna o cookie válido para toda a aplicação, não apenas para rotas `/auth`. O frontend não lê nem armazena o JWT: o navegador gerencia o cookie. Em integrações entre origens que exigirem o envio de cookies, use `credentials: 'include'` (ou o equivalente do cliente HTTP). Uma configuração de CORS com credenciais deverá definir origens explícitas; não deve usar `Access-Control-Allow-Origin: *`.
+
+Em produção, a estratégia `SameSite` deve ser revisada conforme a topologia de deploy: para frontend e backend no mesmo site (por exemplo, `app.exemplo.com` e `api.exemplo.com`), `SameSite=Lax` pode continuar adequado. Se estiverem realmente em sites distintos, poderá ser necessário usar `SameSite=None` juntamente com `Secure`.
+
+Usuário inexistente ou senha incorreta retornam o mesmo contrato, para evitar enumeração de contas:
+
+```http
+401 Unauthorized
+```
+
+```json
+{
+  "error": {
+    "code": "INVALID_CREDENTIALS",
+    "message": "Usuário ou senha inválidos."
+  }
+}
+```
+
+Body inválido retorna `400 VALIDATION_ERROR` no formato de erro já documentado acima. Senhas, `senhaHash` e JWT não são retornados no JSON, e o JWT não deve ser colocado em `localStorage` ou `sessionStorage`.
+
+O acesso atual usa somente access token de curta duração; refresh token, logout e rate limiting são evoluções futuras de hardening. As próximas etapas também adicionarão a validação do cookie, proteção de rotas e autorização por perfil.
 
 ---
 
