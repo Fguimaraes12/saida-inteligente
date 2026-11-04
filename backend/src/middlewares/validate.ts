@@ -10,7 +10,7 @@ type RequestSchemas = {
 };
 
 export function validate(schemas: RequestSchemas): RequestHandler {
-  return (request, _response, next) => {
+  return (request, response, next) => {
     const validation = [
       ['body', schemas.body, request.body],
       ['params', schemas.params, request.params],
@@ -37,6 +37,8 @@ export function validate(schemas: RequestSchemas): RequestHandler {
 
       if (source === 'body') {
         request.body = result.data;
+      } else if (source === 'query') {
+        response.locals.query = result.data;
       } else if (source === 'params') {
         request.params = result.data as typeof request.params;
       }
