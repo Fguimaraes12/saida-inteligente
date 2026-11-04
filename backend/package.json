@@ -12,7 +12,8 @@
     "prisma:seed": "tsx src/scripts/seed.ts",
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma7.config.ts",
     "prisma:validate": "prisma validate --config prisma7.config.ts",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "tsx src/scripts/e2e.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

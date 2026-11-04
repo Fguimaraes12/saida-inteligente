@@ -33,13 +33,19 @@ export function Sala() {
       setConnected(false);
     });
     socket.on("liberacao:criada", () => void refresh());
-    socket.connect();
+    const offline = () => { socket.disconnect(); setConnected(false); };
+    const online = () => { socket.connect(); void refresh(); };
+    window.addEventListener('offline', offline);
+    window.addEventListener('online', online);
+    if (navigator.onLine) socket.connect();
     void refresh();
     // Also catches a new school day and provides recovery if a notification is lost.
     const timer = setInterval(() => void refresh(), 60_000);
     return () => {
       active = false;
       clearInterval(timer);
+      window.removeEventListener('offline', offline);
+      window.removeEventListener('online', online);
       socket.disconnect();
     };
   }, [revision]);
