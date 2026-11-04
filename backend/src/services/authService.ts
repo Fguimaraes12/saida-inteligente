@@ -1,3 +1,4 @@
+import { jwtSecret } from '../config.js';
 import argon2 from 'argon2';
 import { SignJWT } from 'jose';
 
@@ -11,16 +12,6 @@ type JwtExpiration = {
   expiresIn: string;
   maxAgeMs: number;
 };
-
-function getJwtSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET?.trim();
-
-  if (!secret) {
-    throw new Error('JWT_SECRET não está definida. Configure backend/.env antes de autenticar usuários.');
-  }
-
-  return new TextEncoder().encode(secret);
-}
 
 function getJwtExpiration(): JwtExpiration {
   const expiresIn = process.env.JWT_EXPIRES_IN?.trim() || DEFAULT_JWT_EXPIRES_IN;
@@ -44,7 +35,7 @@ function getJwtExpiration(): JwtExpiration {
 
 export const authService = {
   async login({ usuario, senha }: LoginInput) {
-    const jwtSecret = getJwtSecret();
+    const secret = jwtSecret();
     const user = await usuarioRepository.findByUsername(usuario);
     const senhaValida = user ? await argon2.verify(user.senhaHash, senha) : false;
 
@@ -62,7 +53,7 @@ export const authService = {
       .setSubject(String(user.id))
       .setIssuedAt()
       .setExpirationTime(expiresIn)
-      .sign(jwtSecret);
+      .sign(secret);
 
     return {
       token,
