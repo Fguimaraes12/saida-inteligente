@@ -1,7 +1,7 @@
-import type { RequestHandler } from 'express';
-import type { ZodType } from 'zod';
+import type { RequestHandler } from "express";
+import type { ZodType } from "zod";
 
-import { AppError } from '../errors/AppError.js';
+import { AppError } from "../errors/AppError.js";
 
 type RequestSchemas = {
   body?: ZodType;
@@ -12,9 +12,9 @@ type RequestSchemas = {
 export function validate(schemas: RequestSchemas): RequestHandler {
   return (request, response, next) => {
     const validation = [
-      ['body', schemas.body, request.body],
-      ['params', schemas.params, request.params],
-      ['query', schemas.query, request.query],
+      ["body", schemas.body, request.body],
+      ["params", schemas.params, request.params],
+      ["query", schemas.query, request.query],
     ] as const;
 
     for (const [source, schema, value] of validation) {
@@ -26,20 +26,23 @@ export function validate(schemas: RequestSchemas): RequestHandler {
 
       if (!result.success) {
         return next(
-          new AppError(400, 'VALIDATION_ERROR', 'Dados inválidos.',
+          new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "Dados inválidos.",
             result.error.issues.map((issue) => ({
-              path: issue.path.join('.') || source,
+              path: issue.path.join(".") || source,
               message: issue.message,
             })),
           ),
         );
       }
 
-      if (source === 'body') {
+      if (source === "body") {
         request.body = result.data;
-      } else if (source === 'query') {
+      } else if (source === "query") {
         response.locals.query = result.data;
-      } else if (source === 'params') {
+      } else if (source === "params") {
         request.params = result.data as typeof request.params;
       }
     }

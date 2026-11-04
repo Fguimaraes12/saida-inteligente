@@ -1,2 +1,2 @@
-import { salaRepository } from '../repositories/salaRepository.js';
+import { salaRepository } from "../repositories/salaRepository.js";
 export const salaService = { list: () => salaRepository.list() };
