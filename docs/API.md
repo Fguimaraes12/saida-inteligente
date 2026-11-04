@@ -8,7 +8,7 @@ HTTP JSON UTF-8, camelCase, IDs inteiros positivos, datas ISO 8601. Base no dese
 
 `GET /auth/me`: 200 com o mesmo objeto público, ou 401. O middleware verifica assinatura, validade e existência do usuário, carregando o perfil/escopo atual do banco. `POST /auth/logout`: 204 e expira o cookie. Logout remove o cookie daquele navegador; não existe lista de revogação de JWT. O frontend fecha a conexão Socket ao sair. Um token já copiado permanece válido até expirar.
 
-CORS permite somente `FRONTEND_ORIGIN` com credenciais. Mutações com Origin diferente são recusadas (403); cookies SameSite=Lax e Sec-Fetch-Site reforçam a proteção. Clientes nativos sem Origin usam normalmente a API. Produção requer HTTPS e frontend/API no mesmo site; recomenda-se reverse proxy com `/api` e `/socket.io`. Deploy entre sites diferentes não está configurado.
+Em produção, FRONTEND_ORIGIN deve ser uma origem HTTPS explícita, sem caminho/barra final; ausência ou valor inseguro impedem a inicialização. CORS permite somente `FRONTEND_ORIGIN` com credenciais. Mutações com Origin diferente são recusadas (403); cookies SameSite=Lax e Sec-Fetch-Site reforçam a proteção. Clientes nativos sem Origin usam normalmente a API. Produção requer HTTPS e frontend/API no mesmo site; recomenda-se reverse proxy com `/api` e `/socket.io`. Deploy entre sites diferentes não está configurado.
 
 ## Rotas e permissões
 
@@ -58,3 +58,7 @@ Conexão no mesmo servidor HTTP, path `/socket.io`, cookie enviado por `withCred
 O servidor inscreve automaticamente em `sala:{salaId}` ou `segmento:{segmentoId}`, conforme o vínculo da conta no banco. Não há evento de join controlado pelo cliente. A sessão expirada desconecta o socket. Alterações administrativas externas do vínculo exigem reconexão para renovar o canal.
 
 Após commit da liberação, `liberacao:criada` envia somente `{id}` aos canais da sala e do segmento correspondente. O frontend recarrega o estado por REST, tanto nesse evento quanto a cada `connect` (incluindo reconexão), e a cada minuto para a virada do dia/recuperação de notificações. Uma falha de notificação não desfaz a persistência nem cria outra liberação. A lista REST é a fonte de verdade.
+
+## Operação e validação da release
+
+O [roteiro de produção](PRODUCTION.md) define a topologia HTTPS, rate limit de login no Nginx, banco privado com papéis separados, backup e credenciais individuais. A senha compartilhada do seed é vedada para dados reais. Os patches Prisma 7.10.1, Body Parser 2.4.0, Zod 4.6.7 e dependências transitivas corrigem as ocorrências encontradas no npm audit nesta revisão; isso não equivale a uma auditoria externa. Verificações padrão de integração/E2E permanecem bloqueadas pela política de rede aplicada; o smoke local de TLS/proxy é uma evidência independente, não sua substituição.

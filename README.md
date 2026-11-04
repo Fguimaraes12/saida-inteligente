@@ -2,7 +2,9 @@
 
 **Chega de fila na portaria.** Sistema de chamada em tempo real que conecta a portaria, a gestão escolar e a sala de aula no momento da saída dos alunos.
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-blue)
+![Status](https://img.shields.io/badge/status-valida%C3%A7%C3%A3o%20de%20release-blue)
+
+> **Publicação bloqueada:** a validação padrão da CLI Prisma e integração/E2E ainda depende da liberação efetiva de `binaries.prisma.sh`. Dados reais também exigem credenciais individuais e operação segura. Consulte [o estado atual](docs/MVP_PROGRESS.md) e o [roteiro de ambiente/produção](docs/PRODUCTION.md).
 ![Curso](https://img.shields.io/badge/curso-Sistemas%20de%20Informa%C3%A7%C3%A3o-informational)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-lightgrey)
 
@@ -68,7 +70,7 @@ erDiagram
     Usuario ||--o{ Gerenciamento : executa
 ```
 
-- `Usuario` usa as roles `GESTAO`, `PORTEIRO` e `SALA`. Para `SALA`, o login individual aponta para uma `Sala`; o login geral aponta para um `Segmento`. O escopo geral existe porque, na implementação inicial, alunos de várias Salas do mesmo Segmento podem aguardar liberação no mesmo ambiente. A API e o Socket.io usarão esse escopo futuramente. Para `GESTAO` e `PORTEIRO`, ambos os vínculos devem permanecer nulos; para `SALA`, deve existir exatamente um dos dois vínculos.
+- `Usuario` usa as roles `GESTAO`, `PORTEIRO` e `SALA`. Para `SALA`, o login individual aponta para uma `Sala`; o login geral aponta para um `Segmento`. O escopo geral existe porque, na implementação inicial, alunos de várias Salas do mesmo Segmento podem aguardar liberação no mesmo ambiente. A API e o Socket.io usam esse escopo para consultas e notificações autorizadas. Para `GESTAO` e `PORTEIRO`, ambos os vínculos devem permanecer nulos; para `SALA`, deve existir exatamente um dos dois vínculos.
 - `Aluno` tem somente a Sala atual em `salaId`: a progressão anual futura poderá atualizá-lo em lote. A remoção normal é lógica, com `ativo = false`; alunos do último ano também podem ser inativados.
 - `Liberacao` é um registro histórico permanente, registrado por um usuário Porteiro. A unicidade de `alunoId` e `dataLiberacao` garante no máximo uma liberação por aluno a cada dia.
 - `Gerenciamento` é a auditoria administrativa das ações de cadastro, edição, inativação, reativação e importação, sem duplicar dados de usuário ou aluno.
@@ -103,12 +105,12 @@ Detalhes adicionais de operação poderão ser documentados futuramente em [`/do
 
 ## ⚙️ Como executar o MVP
 
-Requisitos: Node.js 22.12+ (validado com 24.22.1), npm, Docker e Docker Compose. O acesso de rede precisa permitir o registro npm, os registros da imagem PostgreSQL e `binaries.prisma.sh` para os comandos padrão do Prisma. Não desabilite TLS nem verificação de checksums para instalar.
+Requisitos: Node.js 22.12 ou 24+ (validado com 24.22.1), npm, Docker e Docker Compose. O acesso de rede precisa permitir o registro npm, os registros da imagem PostgreSQL e `binaries.prisma.sh` para os comandos padrão do Prisma. Não desabilite TLS nem verificação de checksums para instalar.
 
 ```bash
 # Na raiz do checkout existente
-cp .env.example .env
-cp backend/.env.example backend/.env
+test -f .env || cp .env.example .env
+test -f backend/.env || cp backend/.env.example backend/.env
 ```
 
 Edite os arquivos ignorados `.env` antes de continuar. Defina uma senha local exclusiva em `POSTGRES_PASSWORD` e use a mesma senha em `backend/.env` → `DATABASE_URL` (codificada na URL se contiver caracteres especiais). Configure `SEED_DEFAULT_PASSWORD` e um `JWT_SECRET` aleatório de pelo menos 32 caracteres. Não use os placeholders dos exemplos nem versione credenciais.
@@ -152,11 +154,12 @@ A senha compartilhada vem exclusivamente de `SEED_DEFAULT_PASSWORD` e é persist
 A partir de `backend`, com PostgreSQL acessível:
 
 ```bash
+npm run test:config
 npm test
 npm run test:e2e
 ```
 
-`npm test` cria um banco temporário, aplica as migrations, executa o seed duas vezes e valida HTTP, cookies, autorização, auditoria, importação atômica, constraints e Socket.io. O teste de data cobre a virada do dia em São Paulo. O usuário de banco para testes precisa de permissão `CREATEDB`; os bancos temporários são removidos ao final. Não execute testes contra uma instância de produção.
+`npm run test:config` confere os guardas de produção, cookies e bloqueio do seed. `npm test` cria um banco temporário, aplica as migrations, executa o seed duas vezes e valida HTTP, cookies, autorização, auditoria, importação atômica, constraints e Socket.io. O teste de data cobre a virada do dia em São Paulo. Os testes usam exclusivamente a CLI padrão, sem runner externo em `/tmp`. O usuário de banco para testes precisa de permissão `CREATEDB`; os bancos temporários são removidos ao final. Não execute testes contra uma instância de produção.
 
 Para os testes E2E, instale primeiro o Chromium do Playwright a partir de `frontend` (`npx playwright install --with-deps chromium`), ou defina `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` para um Chromium já instalado. O runner de `backend` gera credenciais aleatórias, prepara outro banco temporário e sobe API/Vite nas portas 3100/5180. Valida no navegador Gestão, Portaria, Sala, Sala Geral, isolamento, chamada duplicada, recuperação após ficar offline, restauração de sessão e logout. Não reutiliza serviços nem banco de desenvolvimento. Traces de falhas podem conter dados/cookies de teste: ficam ignorados em `frontend/test-results/`.
 
@@ -164,13 +167,13 @@ Para os testes E2E, instale primeiro o Chromium do Playwright a partir de `front
 
 O schema está em `backend/prisma/schema.prisma`; mantenha migrations compartilhadas imutáveis. Para uma mudança futura de modelagem, use `npm run prisma:migrate:dev -- --name nome_da_migration` em desenvolvimento. `prisma db push` não faz parte do fluxo normal.
 
-`docker compose restart postgres` preserva os dados no volume. `docker compose down` encerra o serviço preservando o volume. **`docker compose down -v` apaga os dados locais**; não use para reiniciar o ambiente.
+A porta do Compose é local (`127.0.0.1`), e a conta configurada por POSTGRES_USER é administrativa de desenvolvimento; não usá-la como runtime de produção. `docker compose restart postgres` preserva os dados no volume. `docker compose down` encerra o serviço preservando o volume. **`docker compose down -v` apaga os dados locais**; não use para reiniciar o ambiente.
 
 ### Contratos e limites
 
 Veja [API REST, segurança e eventos Socket.io](docs/API.md), [backlog consultado](docs/BACKLOG_REFERENCE.md), [validações e progresso](docs/MVP_PROGRESS.md) e [preparação de release](docs/RELEASE_MVP.md). O planejamento inicial permanece em [docs/planejamento-mvp.md](docs/planejamento-mvp.md); em divergências, mantêm-se as decisões consolidadas em develop: Segmento, Sala Geral, enums de auditoria, cookie HttpOnly e Argon2id.
 
-Em produção, use HTTPS e frontend/API no mesmo site, com reverse proxy de `/api` e `/socket.io`. Este repositório fornece Compose para o PostgreSQL de desenvolvimento, não provisionamento de produção. O histórico é permanente, mas nomes e sala exibidos em registros antigos acompanham o cadastro atual conforme a modelagem existente. Não há relatórios avançados, edição de chamadas, revogação central de tokens, refresh token nem gestão de credenciais individuais. Consulte os resultados realmente executados em MVP_PROGRESS.md antes de publicar uma release.
+Em produção, use HTTPS e frontend/API no mesmo site, com reverse proxy de `/api` e `/socket.io`. FRONTEND_ORIGIN HTTPS explícita agora é exigida na inicialização. O [roteiro de produção](docs/PRODUCTION.md) cobre ambiente, exemplos Nginx/systemd, permissões, banco, credenciais, backup/restauração, monitoramento e `npm run test:production` para smoke local do proxy. Este repositório fornece Compose para o PostgreSQL de desenvolvimento, não provisionamento de produção. O histórico é permanente, mas nomes e sala exibidos em registros antigos acompanham o cadastro atual conforme a modelagem existente. Não há relatórios avançados, edição de chamadas, revogação central de tokens, refresh token nem gestão de credenciais individuais. Consulte os resultados realmente executados em MVP_PROGRESS.md antes de publicar uma release.
 
 ---
 
