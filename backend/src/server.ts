@@ -1,23 +1,31 @@
-import { app } from './app.js';
-import { prisma } from './database/prisma.js';
+import { createServer } from "node:http";
+import { attachSockets } from "./websocket/index.js";
+import { jwtSecret } from "./config.js";
+import { app } from "./app.js";
+import { prisma } from "./database/prisma.js";
 
 const port = Number(process.env.PORT) || 3000;
-let server: ReturnType<typeof app.listen> | undefined;
+const server = createServer(app);
+const io = attachSockets(server);
 let isShuttingDown = false;
 
 async function start(): Promise<void> {
   try {
+    jwtSecret();
     await prisma.$connect();
 
     if (isShuttingDown) {
       return;
     }
 
-    server = app.listen(port, () => {
+    server.listen(port, () => {
       console.log(`API disponível em http://localhost:${port}`);
     });
   } catch (error) {
-    console.error('Não foi possível conectar ao PostgreSQL.', error);
+    console.error(
+      "Não foi possível iniciar o backend. Verifique banco e configuração.",
+      error instanceof Error ? error.name : "UnknownError",
+    );
     await prisma.$disconnect();
     process.exit(1);
   }
@@ -34,27 +42,28 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   let exitCode = 0;
 
   try {
-    if (server?.listening) {
+    await new Promise<void>((resolve) => io.close(() => resolve()));
+    if (server.listening) {
       await new Promise<void>((resolve, reject) => {
-        server?.close((error) => (error ? reject(error) : resolve()));
+        server.close((error) => (error ? reject(error) : resolve()));
       });
     }
   } catch (error) {
     exitCode = 1;
-    console.error('Não foi possível fechar o servidor HTTP.', error);
+    console.error("Não foi possível fechar o servidor HTTP.", error);
   } finally {
     try {
       await prisma.$disconnect();
     } catch (error) {
       exitCode = 1;
-      console.error('Não foi possível desconectar do PostgreSQL.', error);
+      console.error("Não foi possível desconectar do PostgreSQL.", error);
     }
 
     process.exit(exitCode);
   }
 }
 
-process.once('SIGINT', () => void shutdown('SIGINT'));
-process.once('SIGTERM', () => void shutdown('SIGTERM'));
+process.once("SIGINT", () => void shutdown("SIGINT"));
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
 void start();
