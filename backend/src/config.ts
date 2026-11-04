@@ -1,7 +1,27 @@
 import "dotenv/config";
 
-export const frontendOrigin =
-  process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+const configuredOrigin = process.env.FRONTEND_ORIGIN?.trim();
+if (process.env.NODE_ENV === "production") {
+  if (!configuredOrigin)
+    throw new Error("FRONTEND_ORIGIN deve ser explícita em produção.");
+  let origin: URL;
+  try {
+    origin = new URL(configuredOrigin);
+  } catch {
+    throw new Error("FRONTEND_ORIGIN inválida em produção.");
+  }
+  if (
+    origin.protocol !== "https:" ||
+    origin.origin !== configuredOrigin ||
+    origin.username ||
+    origin.password
+  ) {
+    throw new Error(
+      "FRONTEND_ORIGIN deve ser uma origem HTTPS sem caminho em produção.",
+    );
+  }
+}
+export const frontendOrigin = configuredOrigin || "http://localhost:5173";
 export const appTimezone = process.env.APP_TIMEZONE || "America/Sao_Paulo";
 // Validate early rather than failing on the first release.
 new Intl.DateTimeFormat("en-CA", { timeZone: appTimezone }).format();

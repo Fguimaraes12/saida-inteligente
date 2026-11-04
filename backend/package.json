@@ -13,11 +13,13 @@
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma7.config.ts",
     "prisma:validate": "prisma validate --config prisma7.config.ts",
     "test": "tsx --test tests/*.test.ts",
-    "test:e2e": "tsx src/scripts/e2e.ts"
+    "test:e2e": "tsx src/scripts/e2e.ts",
+    "test:config": "tsx --test tests/config.test.ts",
+    "test:production": "tsx --test production-tests/*.test.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "argon2": "^0.44.0",
     "cookie": "^2.0.1",
     "cors": "^2.8.6",
@@ -33,7 +35,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.14",
     "@types/pg": "^8.15.5",
-    "prisma": "7.10.0",
+    "prisma": "7.10.1",
     "socket.io-client": "^4.8.4",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"

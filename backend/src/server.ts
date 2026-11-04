@@ -50,13 +50,19 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     }
   } catch (error) {
     exitCode = 1;
-    console.error("Não foi possível fechar o servidor HTTP.", error);
+    console.error(
+      "Não foi possível fechar o servidor HTTP.",
+      error instanceof Error ? error.name : "UnknownError",
+    );
   } finally {
     try {
       await prisma.$disconnect();
     } catch (error) {
       exitCode = 1;
-      console.error("Não foi possível desconectar do PostgreSQL.", error);
+      console.error(
+        "Não foi possível desconectar do PostgreSQL.",
+        error instanceof Error ? error.name : "UnknownError",
+      );
     }
 
     process.exit(exitCode);

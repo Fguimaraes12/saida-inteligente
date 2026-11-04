@@ -39,11 +39,7 @@ test(
         >
       | undefined;
     try {
-      if (process.env.PRISMA_MIGRATION_RUNNER) {
-      execFileSync(process.execPath, [process.env.PRISMA_MIGRATION_RUNNER], { stdio: 'pipe' });
-    } else {
-      execFileSync('npm', ['run', 'prisma:migrate:deploy'], { stdio: 'pipe' });
-    }
+      execFileSync("npm", ["run", "prisma:migrate:deploy"], { stdio: "pipe" });
       execFileSync("npm", ["run", "prisma:seed"], { stdio: "pipe" });
       execFileSync("npm", ["run", "prisma:seed"], { stdio: "pipe" });
       ({ prisma } = await import("../src/database/prisma.js"));

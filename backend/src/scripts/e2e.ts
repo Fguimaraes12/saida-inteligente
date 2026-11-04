@@ -26,10 +26,7 @@ function run(args: string[]) {
 }
 try {
   await admin.query(`CREATE DATABASE "${database}"`);
-  if (process.env.PRISMA_MIGRATION_RUNNER) {
-    const migrated = spawnSync(process.execPath, [process.env.PRISMA_MIGRATION_RUNNER], { env: testEnv, stdio: 'inherit' });
-    if (migrated.status !== 0) throw new Error('Migration runner falhou.');
-  } else { run(['run', 'prisma:migrate:deploy']); }
+  run(["run", "prisma:migrate:deploy"]);
   run(["run", "prisma:seed"]);
   run(["run", "build"]);
   run(["--prefix", "../frontend", "run", "test:e2e"]);

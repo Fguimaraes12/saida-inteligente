@@ -43,15 +43,17 @@ const usuariosPorSala = [
   { usuario: 'medio_3ano', segmento: 'Ensino Médio', serie: 3 },
 ] as const;
 
+class SeedConfigurationError extends Error {}
+
 function validarAmbiente(): string {
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('O seed é destinado apenas a desenvolvimento/MVP e não pode ser executado em produção.');
+    throw new SeedConfigurationError('O seed é destinado apenas a desenvolvimento/MVP e não pode ser executado em produção.');
   }
 
   const senhaPadrao = process.env.SEED_DEFAULT_PASSWORD?.trim();
 
   if (!senhaPadrao) {
-    throw new Error('SEED_DEFAULT_PASSWORD deve ser definida e não pode estar vazia para executar o seed.');
+    throw new SeedConfigurationError('SEED_DEFAULT_PASSWORD deve ser definida e não pode estar vazia para executar o seed.');
   }
 
   return senhaPadrao;
@@ -125,7 +127,7 @@ async function main(): Promise<void> {
 
 void main()
   .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : 'Falha ao executar o seed.');
+    console.error(error instanceof SeedConfigurationError ? error.message : 'Falha ao executar o seed. Verifique conexão, migrations e permissões.');
     process.exitCode = 1;
   })
   .finally(async () => {
