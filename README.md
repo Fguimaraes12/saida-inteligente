@@ -4,7 +4,7 @@
 
 ![Status](https://img.shields.io/badge/status-valida%C3%A7%C3%A3o%20de%20release-blue)
 
-> **Publicação bloqueada:** a validação padrão da CLI Prisma e integração/E2E ainda depende da liberação efetiva de `binaries.prisma.sh`. Dados reais também exigem credenciais individuais e operação segura. Consulte [o estado atual](docs/MVP_PROGRESS.md) e o [roteiro de ambiente/produção](docs/PRODUCTION.md).
+> **Apto para homologação com dados sintéticos:** Prisma, builds e testes oficiais passaram em 05/11/2026. Para Windows/Docker Desktop com Quick Tunnel protegido por e-mail, siga [o guia de homologação](docs/HOMOLOGATION.md). Dados reais e produção continuam sujeitos aos gates de credenciais e operação segura em [PRODUCTION.md](docs/PRODUCTION.md); resultados em [MVP_PROGRESS.md](docs/MVP_PROGRESS.md).
 ![Curso](https://img.shields.io/badge/curso-Sistemas%20de%20Informa%C3%A7%C3%A3o-informational)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-lightgrey)
 

@@ -1,6 +1,8 @@
 # Preparação da release v0.1.0 — SI-031
 
-Revisão de 04/11/2026 (America/Sao_Paulo). **Classificação: BLOQUEADO para publicação.** Funcionalidades foram validadas anteriormente, mas a reprodução convencional das migrations e as suítes padrão de integração/E2E não passaram nesta revisão por bloqueio externo. Além disso, ainda não existe provisionamento individual validado das credenciais nem operação real de produção.
+**Atualização de 05/11/2026 (America/Sao_Paulo): APTO PARA HOMOLOGAÇÃO com dados sintéticos.** Prisma, builds e suítes padrão passaram; evidências em MVP_PROGRESS.md e roteiro Windows/Docker Desktop em [HOMOLOGATION.md](HOMOLOGATION.md). A publicação em produção continua bloqueada pelos gates operacionais e de credenciais reais.
+
+O checklist e a tabela abaixo preservam a revisão histórica de 04/11/2026, quando o download do Prisma ainda estava bloqueado. Não representam os resultados atuais nem uma mudança de estado das issues; confrontar os critérios com as evidências novas antes de atualizá-los.
 
 Este documento prepara a futura integração em develop. Não cria release, branch de release, tag, push, merge, publicação nem fechamento de issue. Os commits locais e a branch `feature/SI-030` foram preservados.
 

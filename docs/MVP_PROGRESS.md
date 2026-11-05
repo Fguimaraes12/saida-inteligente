@@ -1,5 +1,76 @@
 # Progresso do MVP — Saída Inteligente
 
+## Preparação da homologação Windows — 05/11/2026 (America/Sao_Paulo)
+
+**Configuração preparada para homologação sintética no Windows/Docker Desktop, com validação da máquina Windows e do Quick Tunnel ainda pendente.** O MVP permanece APTO PARA HOMOLOGAÇÃO COM DADOS SINTÉTICOS; não há aprovação de produção ou de dados reais.
+
+### Checkpoint preservado antes da implementação
+
+Branch confirmada em `feature/SI-030`, inicialmente no commit `5fe20ea`. A única alteração local era a seção de validação oficial deste documento (82 linhas). Ela foi revisada e salva isoladamente no commit local **`b5d2639`**, `docs(SI-030): registra validacao oficial aprovada do MVP`. O Git ficou limpo antes da implementação da infraestrutura. Não houve push ou merge; as alterações de homologação posteriores ficaram locais para revisão.
+
+Lidos AGENTS.md, MVP_PROGRESS.md, PRODUCTION.md, RELEASE_MVP.md, planejamento e a configuração/código existente. Reutilizados React compilado, Express, Prisma 7.10.1, PostgreSQL 17.11, Socket.io, autenticação por cookie e as regras de origem existentes. Não existiam Dockerfiles de aplicação; o Compose original atendia somente ao PostgreSQL de desenvolvimento.
+
+### Entrega de infraestrutura
+
+- `compose.homolog.yaml`: PostgreSQL, job `prepare`, backend e Nginx. Redes internas separadas para banco/aplicação; rede de entrada somente para o proxy. Somente o HTTP do Nginx é publicado em loopback (8080 no Windows; 58080 na fixture Cloud). Nenhuma porta de banco/backend publicada.
+- `.dockerignore` e `.gitignore`: excluem ambiente, artefatos locais e credenciais sintéticas do Git/contexto de build.
+- `deploy/homolog/`: Dockerfiles backend/frontend, configuração/template Nginx, referência de ambiente, grants do papel restrito e bootstrap exclusivo da fixture sintética.
+- `scripts/Initialize-Homolog.ps1`, `Set-HomologOrigin.ps1`, `Start-HomologTunnel.ps1`: segredos novos, atualização conjunta da origem/host/WSS e início manual do túnel exigindo e-mails individuais.
+- `docs/HOMOLOGATION.md`: requisitos Windows/WSL 2, inicialização, túnel, verificações positivas/negativas, encerramento e limpeza explícita somente do volume sintético. README/PRODUCTION/RELEASE_MVP remetem ao resultado atual sem alterar checklists/estados de issues.
+- `backend/production-tests/https.test.ts`: aceita senhas individuais de Gestão/Sala via `PRODUCTION_TEST_MANAGER_PASSWORD` / `PRODUCTION_TEST_ROOM_PASSWORD`, preservando o fallback da fixture histórica. Nenhuma mudança de comportamento da aplicação.
+
+O job chama **`npm run prisma:migrate:deploy`**. Usa **`npm run prisma:seed`** somente em subprocesso `NODE_ENV=test`, com senha transitória aleatória, e substitui imediatamente as 22 senhas por valores individuais aleatórios/Argon2id antes da API. As credenciais ficam em arquivo privado ignorado, nunca no frontend/log. Reexecução confere e preserva as contas. O runtime usa um papel sem superusuário/CREATEDB/CREATEROLE, com grants mínimos e sem acesso ao histórico de migrations; não recebe senha de seed/administração.
+
+### Cloudflare e origem
+
+A documentação oficial atual de [Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) e o [anúncio de proteção por e-mail](https://developers.cloudflare.com/changelog/post/2026-10-02-protected-quick-tunnels/) confirmam `--allowed-mail`, sem domínio próprio. O binário oficial **cloudflared 2026.10.7**, obtido do release da Cloudflare, confirmou a opção em `tunnel --help`. Foram executados somente `--version` e `--help`, nunca a abertura de túnel.
+
+O script exige lista explícita de e-mails, recusa curingas e versão sem a opção. O testador deverá autenticar o PIN da Cloudflare e depois a conta sintética do MVP. O endereço temporário exige atualizar `FRONTEND_ORIGIN`, `PUBLIC_HOST` e `PUBLIC_WS_ORIGIN`, e recriar backend/proxy a cada novo túnel. Mantidos origem exata, CORS com credenciais, guardas de origem, cookie HttpOnly/Secure/Lax e autorização Socket.io. O Nginx começa com `pending.invalid` e recusa Host diferente; frontend/API/WebSocket usam a mesma origem HTTPS pública.
+
+### Comandos e resultados desta preparação
+
+| Verificação / comando | Resultado real |
+| --- | --- |
+| `git status`, branch/log/diff, `git diff --check`; `git add -- docs/MVP_PROGRESS.md` e `git commit ...` | PASS; checkpoint somente documental `b5d2639`, sem operações remotas |
+| `docker compose --env-file <privado> -f compose.homolog.yaml config --quiet` | PASS; configuração interpretada sem imprimir segredos |
+| Builds Docker com `npm ci --strict-ssl=true`, `prisma:generate`, `prisma:validate`, `npm run build` | PASS; Dockerfiles finais compilados separadamente, incluindo o backend como usuário node e as permissões corrigidas do proxy. Client 7.10.1, frontend com 80 módulos |
+| Job `prepare` em PostgreSQL novo | PASS; 2 migrations aplicadas pela CLI convencional, seed e 22 senhas distintas; backend iniciou somente após o sucesso |
+| `npm test` executado no serviço backend, com credencial administrativa somente no processo de teste | PASS; **14/14**, sem falhas, cancelados ou ignorados; banco temporário removido |
+| `npm run test:production` contra fixture HTTPS local `.test`, com senhas individuais | PASS; **1/1**, TLS verificado com CA explícita, SPA, API, cookie, CORS, origem indevida e Socket.io através do Nginx |
+| Smoke HTTP/WebSocket com dependências oficiais do projeto | PASS; logins com senhas distintas, cadastro/edição/status/auditoria e liberação usando papel restrito; evento pelo proxy após persistência, recuperação REST e duplicidade 409 |
+| `nginx -t`, saúde e inspeção limitada das portas | PASS; proxy/backend saudáveis, PostgreSQL saudável; só a porta HTTP do proxy em 127.0.0.1 publicada |
+| Consultas Node/pg de papéis e migrations | PASS; runtime sem privilégios administrativos, leitura de `_prisma_migrations` recusada com 42501, ausência de SEED_DEFAULT_PASSWORD no serviço; 2 migrations concluídas, sem rollback, SHA-256 correspondente ao SQL |
+| Segunda execução do job `prepare` e `restart postgres` | PASS; nenhuma migration pendente; registros completos de domínio/auditoria, histórico e arquivo das senhas individuais preservados |
+| PowerShell 7.6.9 no Linux: parser e smoke dos scripts | PASS; inicialização aleatória, recusa de sobrescrita, rejeição de origens inválidas e sincronização das 3 variáveis sem alterar segredos; e-mail curinga recusado. ACL NTFS e início de túnel não executados |
+| `npm audit --omit=dev` frontend | Zero ocorrências reportadas. Auditoria completa reportou 3 altas/1 baixa em ferramentas de build/desenvolvimento (Vite/source-map/PostCSS/plugin); não foi aplicado audit fix nem alterado lockfile |
+
+### Limites da reprodução no Cloud
+
+Os testes usaram projeto/volume exclusivos `si-homolog-validation`, PostgreSQL novo, segredos aleatórios e somente dados sintéticos. Artefatos privados ficaram em `/workspace/work/si-homolog-validation` (0700/0600). Não se usaram engines alternativos, mirrors, runners de migrations alternativos, relaxamento de TLS/checksum, db push ou reset.
+
+O disco de aproximadamente **8 GB com driver VFS** retornou `no space left on device` em builds/cópias das instâncias da imagem completa. Foram limpos caches reconstruíveis e removidos containers sintéticos parados, preservando seus volumes; driver, diretório do daemon e dados existentes não foram alterados. Não se removeu o banco de desenvolvimento.
+
+Para a prova de runtime, um override **privado, fora da entrega Windows**, usou o estágio `base` do mesmo Dockerfile Node/OpenSSL, com artefatos oficiais já instalados/compilados do projeto montados somente para leitura. `DOTENV_CONFIG_PATH=/dev/null` impediu leitura do `.env` de desenvolvimento. O bootstrap e a CLI de migrations foram os do projeto, sem override de engine. A correção de permissões do Nginx foi exercitada em imagem derivada localmente do frontend já compilado, com o mesmo ajuste dos Dockerfiles finais. Os Dockerfiles de entrega foram reconstruídos separadamente; a imagem final do proxy também passou no entrypoint/envsubst e `nginx -t`, sem root e com filesystem somente leitura. A execução simultânea das duas instâncias da imagem backend completa neste Cloud ficou limitada pelo espaço. Não apresentar essa adaptação como validação do Docker Desktop/Windows.
+
+O HTTPS foi simulado apenas em loopback por Nginx oficial 1.28 e certificado `.test` explicitamente confiado/verificado pelo cliente; isso valida o salto HTTPS → proxy HTTP → API/WebSocket, não o PIN/edge da Cloudflare. O E2E Chromium 1/1 da etapa anterior não foi repetido contra Quick Tunnel nesta rodada. Nenhum serviço/túnel foi publicado na Internet.
+
+### Problemas encontrados e corrigidos
+
+1. Arquivos de configuração/template copiados com permissões privadas impediam o Nginx sem privilégios de ler o template. Dockerfile define leitura 0644, diretórios 0755 e propriedade nginx somente nos arquivos públicos/configuração; backend copia fontes/configuração como node e compila sem root. Segredos permanecem excluídos.
+2. Healthcheck BusyBox tentava usar o proxy de saída herdado para loopback. `wget -Y off` limita a chamada de saúde ao HTTP local; não muda proxy/TLS para downloads externos.
+3. Proxy ligado apenas à rede `internal` ficava saudável dentro do container, mas sem entrada HTTP acessível pela publicação local. Criada rede `ingress` exclusivamente para o proxy; banco/backend continuam internos. O acesso HTTP e WebSocket pelo proxy passou após o ajuste.
+4. O smoke HTTPS antigo pressupunha uma senha compartilhada para Gestão/Sala. Foram adicionadas variáveis de teste individuais, sem alterar login, seed ou guardas da aplicação.
+
+### Pendências e próxima etapa
+
+- Executar o guia no Windows real: Docker Desktop/WSL 2, ACLs NTFS e bind mounts, build/saúde e limpeza sintética controlada. Recomenda-se pelo menos 20 GB livres para imagens/cache/volume.
+- Iniciar manualmente o Quick Tunnel com os e-mails escolhidos; comprovar PIN para autorizado, recusa para não autorizado e WSS/cookies após o gate da Cloudflare. Atualizar a origem a cada URL nova.
+- Realizar e registrar o aceite funcional nos dispositivos/rede representativos. Nenhum teste dependente do Windows, e-mail real ou acesso público foi declarado executado.
+- Planejar manutenção das ferramentas de desenvolvimento apontadas pela auditoria; Vite dev/preview não é exposto pelo ambiente de homologação.
+- Revisar critérios de SI-030/SI-031 e todos os gates de credenciais/infraestrutura real antes de estados de issues ou produção. O provisionamento desta fixture não foi validado para contas reais da escola.
+
+Nenhum push, merge, fechamento de issue, publicação pública ou alteração de main/develop/produção. O checkpoint documental foi commitado; a infraestrutura posterior permanece como alterações locais revisáveis. Serviços de teste encerrados ao final, volumes sintéticos preservados.
+
 ## Validação técnica do MVP — 05/11/2026 (America/Sao_Paulo)
 
 **Classificação: APTO PARA HOMOLOGAÇÃO com dados sintéticos.** O bloqueio de rede do Prisma foi resolvido no novo ambiente. Geração limpa do Client 7.10.1, validação do schema, aplicação convencional das migrations em banco vazio, instalações pelos lockfiles, builds, testes backend e E2E com Chromium passaram nesta execução. Isso não declara o MVP pronto para produção nem autoriza uso de dados reais.

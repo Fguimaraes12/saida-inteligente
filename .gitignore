@@ -9,3 +9,6 @@ backend/src/generated/prisma/
 
 playwright-report/
 test-results/
+
+# Credenciais individuais geradas exclusivamente para homologação sintética.
+deploy/homolog/private/

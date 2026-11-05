@@ -18,10 +18,10 @@ test(
       process.env.PRODUCTION_TEST_CA,
       "Informe o certificado local confiável.",
     );
-    assert.ok(
-      process.env.SEED_DEFAULT_PASSWORD,
-      "Informe somente a senha das contas sintéticas de teste.",
-    );
+    const managerPassword = process.env.PRODUCTION_TEST_MANAGER_PASSWORD || process.env.SEED_DEFAULT_PASSWORD;
+    const roomPassword = process.env.PRODUCTION_TEST_ROOM_PASSWORD || process.env.SEED_DEFAULT_PASSWORD;
+    assert.ok(managerPassword && roomPassword,
+      "Informe somente as senhas individuais de Gestão e Sala das contas sintéticas de teste.");
     const ca = fs.readFileSync(process.env.PRODUCTION_TEST_CA);
     // The .test fixture always resolves to loopback; it cannot target a real deployment.
     const agent = new https.Agent({
@@ -86,7 +86,7 @@ test(
       assert.equal((await request("/api/health")).status, 200);
       const login = await request("/api/auth/login", {
         method: "POST",
-        body: { usuario: "gestao", senha: process.env.SEED_DEFAULT_PASSWORD },
+        body: { usuario: "gestao", senha: managerPassword },
       });
       assert.equal(login.status, 200);
       const cookie = login.headers["set-cookie"]![0];
@@ -117,7 +117,7 @@ test(
         method: "POST",
         body: {
           usuario: "fund1_1ano",
-          senha: process.env.SEED_DEFAULT_PASSWORD,
+          senha: roomPassword,
         },
       });
       assert.equal(room.status, 200);

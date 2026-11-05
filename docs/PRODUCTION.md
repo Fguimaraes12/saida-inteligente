@@ -1,6 +1,6 @@
 # Ambiente e operação — candidato v0.1.0
 
-Este é um roteiro para uma implantação futura autorizada, não o registro de um deploy realizado. O estado executado está em MVP_PROGRESS.md. A classificação atual é **BLOQUEADO para publicação**: a política aplicada ainda impede a CLI Prisma e os testes padrão de integração/E2E; credenciais individuais e a operação real também não estão prontas. A aplicação pode ser avaliada com dados sintéticos no ambiente existente, sem confundir essa avaliação com autorização para dados reais.
+Este é um roteiro para uma implantação futura autorizada, não o registro de um deploy realizado. Em 05/11/2026 a validação oficial passou e o MVP está **APTO PARA HOMOLOGAÇÃO com dados sintéticos**; resultados em MVP_PROGRESS.md. A publicação em produção continua bloqueada pelos gates operacionais e de credenciais reais. Para Windows/Docker Desktop e Quick Tunnel temporário protegido por e-mail, use [HOMOLOGATION.md](HOMOLOGATION.md); o servidor definitivo será o da escola.
 
 ## Topologia suportada
 
@@ -38,7 +38,7 @@ O seed existente é bloqueado em produção e cria 22 contas com uma única senh
 
 ## Build e deploy futuro
 
-1. Resolver o bloqueio de rede e obter todos os passes padrão da seção Validação. Revisar o diff/commits e aprovar a integração futura em develop. Não há autorização atual para push, merge ou publicação.
+1. Conferir os passes padrão registrados em MVP_PROGRESS.md e os gates operacionais ainda pendentes. Revisar o diff/commits e aprovar a integração futura em develop. Não há autorização atual para push, merge ou publicação.
 2. Preparar um checkout/release revisado em `/srv/saida-inteligente` e instalar dependências a partir dos lockfiles, com Node compatível. Para o job de build/migration, injetar DATABASE_URL de migration pelo mecanismo seguro do ambiente. O download de Prisma exige `binaries.prisma.sh`; manter TLS e checksum ativos.
 
    ```bash
@@ -102,7 +102,7 @@ npm test
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-`npm test` e `test:e2e` criam seus próprios bancos temporários; apontar DATABASE_URL para PostgreSQL de validação, nunca produção. Não há mais hook PRISMA_MIGRATION_RUNNER. Os comandos convencionais continuam bloqueados nesta instância pelo 403 do proxy; isso não foi contornado com engine alternativo, mirror ou verificação desativada.
+`npm test` e `test:e2e` criam seus próprios bancos temporários; apontar DATABASE_URL para PostgreSQL de validação, nunca produção. Não há mais hook PRISMA_MIGRATION_RUNNER. Os comandos convencionais passaram em 05/11/2026 após a liberação efetiva do domínio, sem engine alternativo, mirror ou verificação desativada. Isso não substitui homologação na rede da escola.
 
 `npm run test:production` é um smoke independente do **proxy local**, não o E2E do MVP: requer Nginx/TLS de teste, backend iniciado por `npm start` com NODE_ENV=production, banco isolado preparado com contas sintéticas e origem `.test`. O teste força a resolução ao loopback e valida o certificado com a CA fornecida. Exemplo após preparar essa fixture:
 
@@ -112,4 +112,4 @@ PRODUCTION_TEST_CA=/caminho/protegido/tls.crt \
 npm run test:production
 ```
 
-A senha sintética é injetada só no processo de teste via SEED_DEFAULT_PASSWORD, nunca no serviço de produção. Nesta máquina, a fixture usou cópia **apenas do schema** de desenvolvimento para permitir checagens independentes de seed/backup/proxy. Não simulou sucesso de `migrate:deploy`, não substitui reprodução em banco vazio e não autoriza dados reais. O systemd, certificado público, restauração externa, credenciais individuais e operação real ainda precisam de validação.
+As senhas sintéticas são injetadas só no processo de teste via `PRODUCTION_TEST_MANAGER_PASSWORD` e `PRODUCTION_TEST_ROOM_PASSWORD`; o fallback `SEED_DEFAULT_PASSWORD` preserva a fixture antiga, nunca o serviço. A fixture histórica de 04/11 usou cópia **apenas do schema** de desenvolvimento para checagens independentes; a validação oficial de 05/11 aplicou migrations em banco vazio. O systemd, certificado público, restauração externa, credenciais individuais reais e operação da escola ainda precisam de validação.

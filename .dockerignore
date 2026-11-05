@@ -1,0 +1,12 @@
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+**/test-results
+**/playwright-report
+backend/src/generated/prisma
+deploy/homolog/private
+work
+output
