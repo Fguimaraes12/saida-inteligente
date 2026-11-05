@@ -1,5 +1,87 @@
 # Progresso do MVP — Saída Inteligente
 
+## Validação técnica do MVP — 05/11/2026 (America/Sao_Paulo)
+
+**Classificação: APTO PARA HOMOLOGAÇÃO com dados sintéticos.** O bloqueio de rede do Prisma foi resolvido no novo ambiente. Geração limpa do Client 7.10.1, validação do schema, aplicação convencional das migrations em banco vazio, instalações pelos lockfiles, builds, testes backend e E2E com Chromium passaram nesta execução. Isso não declara o MVP pronto para produção nem autoriza uso de dados reais.
+
+Esta seção registra a execução atual e supera, para esta instância, os bloqueios de rede e testes relatados na revisão de 04/11 abaixo. Os gates operacionais e de credenciais de `PRODUCTION.md` e `RELEASE_MVP.md` continuam pendentes. Não foram alterados estados ou checklists de issues, nem realizadas operações remotas.
+
+### Repositório e ambiente confirmados
+
+- Estado inicial limpo em `feature/SI-030`; HEAD `5fe20eae9406d555a4e2859acbe0f00af84b00f3` (`5fe20ea`). O commit informado está presente e é o próprio HEAD. Branch e HEAD foram preservados.
+- Lidos `AGENTS.md`, este arquivo, `PRODUCTION.md`, `RELEASE_MVP.md` e `README.md`; consultados os scripts, testes, migrations e os critérios registrados em `BACKLOG_REFERENCE.md`.
+- Node.js `24.22.1`, npm `11.9.0`, Docker `29.9.2`, Compose `2.40.3`, PostgreSQL `17.11` da imagem oficial `postgres:17.11`, Chromium `155.0.8059.79` em `/usr/bin/chromium` e Playwright `1.64.1` do lockfile. O daemon Docker local estava disponível. O host não possui `psql`; a versão foi conferida pelo `psql` da imagem oficial, e as consultas usaram a dependência `pg` do backend.
+- `prisma`, `@prisma/client` e `@prisma/adapter-pg` declarados, travados e reinstalados em `7.10.1`. Ambos os lockfiles são versão 3. Nenhum manifesto, lockfile, schema ou SQL de migration foi alterado.
+- Política observada com `observations_current: true`, ambiente `running`/`connected`, rede restrita `enforced` e `binaries.prisma.sh` efetivamente permitido. O snapshot `/etc/codex/network-policy.json` também contém o domínio.
+
+### Isolamento e reprodução
+
+Foi usado o `compose.yaml` oficial sem alteração, com projeto separado `si-mvp-20261105`, volume novo `si-mvp-20261105_postgres_data`, banco inicialmente vazio `si_mvp_validation` e porta exclusivamente `127.0.0.1:55433`. Não se reutilizou o schema da fixture anterior nem se acessaram os bancos de desenvolvimento/produção.
+
+Credenciais aleatórias e logs privados ficaram em `/workspace/work/si-validation-20261105` (diretório 0700; ambiente 0600), fora do checkout e dos artefatos públicos. `DATABASE_URL` e demais variáveis sintéticas foram exportadas a partir desse arquivo privado, sem imprimir os valores. A conta administrativa com CREATEDB foi usada exclusivamente no cluster de testes.
+
+O Client anterior foi movido para esse diretório privado antes da primeira geração. Depois de `npm ci`, o Client recém-gerado também foi retirado e regenerado novamente. Os `dist` anteriores foram retirados antes dos builds. Os resultados atuais não dependem do Client 7.10.0 ou dos builds da revisão anterior. Foi uma reprodução com dependências, Client, builds e banco renovados no checkout existente; não se afirma provisionamento de um host de produção do zero.
+
+### Comandos executados e resultados reais
+
+Comandos npm abaixo executados em `backend`, salvo indicação de frontend. Instalações, builds, scripts Prisma e suítes de testes terminaram com exit 0. O serviço iniciado por `npm start` foi encerrado intencionalmente com SIGINT ao concluir a fixture; o npm retornou 1 nessa interrupção, sem falha de inicialização ou de teste.
+
+| Comando / verificação | Resultado atual |
+| --- | --- |
+| `git status --short --branch`, `git branch --show-current`, `git log -5 --oneline`, `git cat-file -t 5fe20ea`, `git merge-base --is-ancestor 5fe20ea HEAD` | PASS; branch esperada, commit presente, checkout inicialmente limpo |
+| `node --version`, `npm --version`, `docker --version`, `docker compose version`, saúde do daemon local e `docker exec ... psql --version` | PASS; versões acima; ausência de psql no host não impediu a validação |
+| `docker --host=unix:///var/run/docker.sock compose --env-file /workspace/work/si-validation-20261105/validation.env --project-name si-mvp-20261105 -f compose.yaml up -d --wait postgres` | PASS; banco/volume novos e container saudável, executado na raiz do projeto |
+| `npm run prisma:generate` | PASS antes e depois de npm ci; Client 7.10.1 gerado sem artefato anterior |
+| `npm run prisma:validate` | PASS antes e depois da reinstalação; schema válido |
+| `npm run prisma:migrate:deploy` | PASS; aplicou as 2 migrations em banco vazio; repetições após npm ci e após reinício sem migrations pendentes |
+| `npm ci` backend / frontend | PASS; respectivamente 268 / 86 pacotes instalados pelos lockfiles existentes |
+| `npm run build` backend | PASS; TypeScript compilou com Client final 7.10.1; o runner E2E também recompilou o backend |
+| `npm run build` frontend | PASS; TypeScript e Vite 7.3.6, 80 módulos transformados |
+| `npm run test:config` | PASS; 4 testes, 0 falhas, cancelados ou ignorados |
+| `npm test` | PASS; 14 testes contabilizados pelo Node: 4 configuração + 1 data escolar + 1 teste integrado contendo 8 subtestes; 0 falhas, cancelados ou ignorados |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e` | PASS; 1 cenário Playwright, 0 falhas; o runner oficial criou banco próprio, aplicou migrations, executou seed, build e iniciou API/Vite |
+| `npm run prisma:seed`, duas vezes no banco de validação | PASS; 4 segmentos, 16 salas e 22 contas; a integração também validou idempotência e Argon2id |
+| `PORT=3101 npm start` e chamadas HTTP aos endpoints existentes | PASS; serviço compilado iniciou; login de Gestão/Porteiro, cadastro de aluno sintético e registro de liberação retornaram os status esperados; serviço encerrado intencionalmente após a fixture |
+| Consultas somente leitura com `node --input-type=module` e `pg`, SHA-256 via `node:crypto` | PASS; histórico, checksums, constraints, índices e limpeza dos bancos temporários conferidos; não é runner de migrations |
+| Mesmo projeto Compose: `restart postgres`, seguido de `up -d --wait postgres` | PASS; persistência confirmada após reinício do cluster isolado |
+| Mesmo projeto Compose: `stop postgres` | PASS; serviços de teste encerrados, volume sintético preservado, sem exclusão de dados |
+| `git diff --check` e comparação de manifestos/lockfiles/migrations | PASS; nenhuma alteração nesses arquivos; única mudança versionada desta rodada é este relatório em MVP_PROGRESS.md |
+
+### Prisma e diagnóstico da rede
+
+Não ocorreu HTTP 403 nesta rodada. A URL oficial de checksum `https://binaries.prisma.sh/all_commits/d1b3f377ca835d73fd50954a5e22128b9ebdd6b8/debian-openssl-3.0.x/schema-engine.gz.sha256`, consultada com `curl --silent --show-error --fail --max-time 30`, respondeu **HTTP 200**, com resultado de verificação TLS **0**. O schema engine nativo instalado pelo pacote oficial identifica o mesmo commit `d1b3f377ca835d73fd50954a5e22128b9ebdd6b8`; plataforma `debian-openssl-3.0.x`.
+
+O `npm config get strict-ssl` retornou `true`; não havia variáveis `PRISMA_*` nem `NODE_TLS_REJECT_UNAUTHORIZED` exportadas como overrides. Proxy e confiança de CA do ambiente foram mantidos. Não se usaram runners temporários, ferramentas em `previous-prisma-tools`, engines alternativos, mirrors, `db push`, reset, registro artificial do histórico ou desativação de TLS/checksum. A resolução foi a aplicação efetiva da política externa, sem modificar dependências.
+
+### Backend, E2E e Socket.io
+
+Os 8 subtestes integrados executaram de fato: seed/hashes, JWT e credenciais, autorização e entradas inválidas, cadastro/edição/auditoria, inativação/reativação, importação atômica, Socket.io/concorrência e constraint de escopo do usuário. O teste de data conferiu as bordas do dia escolar em São Paulo.
+
+O Socket.io foi validado por WebSocket autenticado. Conexões sem credencial, com token inválido ou perfil Porteiro foram recusadas; Sala e Sala Geral receberam o evento mínimo após persistência, sem entrega às salas/segmentos indevidos. Cinco chamadas concorrentes produziram uma resposta 201 e quatro 409, com uma única liberação persistida. A consulta REST após reconexão recuperou o estado.
+
+O cenário E2E passou com os cinco contextos previstos: Gestão, Portaria, Sala, Sala Geral e outra Sala. Conferiu cadastro, edição, inativação/reativação, importação, chamada, isolamento, duplicidade, recuperação após offline, proteção de rota, cookie HttpOnly, ausência de token em storage, restauração de sessão, logout e senha incorreta. `frontend/test-results/.last-run.json` terminou com `status: passed` e `failedTests: []`.
+
+Os únicos avisos do E2E foram de precedência entre `NO_COLOR` e `FORCE_COLOR`; não houve falha de navegador ou teste. Os bancos `saida_test_*` e `saida_e2e_*` criados pelos scripts foram removidos pelos próprios scripts, confirmado por consulta ao catálogo.
+
+### Migrations e persistência
+
+As migrations `20261002175139_initial_schema` e `20261104000100_usuario_scope` foram aplicadas pela CLI convencional, ambas com `finished_at` preenchido, sem rollback e com uma etapa aplicada. O SHA-256 de cada arquivo SQL corresponde ao checksum registrado em `_prisma_migrations`.
+
+No banco principal de validação, após o seed duplo, a API oficial criou exclusivamente uma fixture sintética: 1 aluno, 1 registro de Gerenciamento e 1 Liberacao. Antes/depois do reinício do PostgreSQL foram comparadas contagens e impressões SHA-256 dos registros completos das seis tabelas de domínio, além do histórico/timestamps/checksums das migrations, definições de constraints e índices. Tudo permaneceu igual: **4 segmentos / 16 salas / 22 usuários / 1 aluno sintético / 1 liberação / 1 auditoria**. Foram confirmadas 8 FKs validadas, a CHECK de escopo de Usuario e a unicidade diária de Liberacao.
+
+Não se copiaram dados reais nem o schema de bancos anteriores. Não foram repetidos nesta rodada o smoke HTTPS/Nginx `test:production`, backup/restauração ou checks de infraestrutura real; os resultados históricos dessas verificações não são apresentados como passes atuais.
+
+### Problemas corrigidos e pendências
+
+- **Resolvido:** bloqueio externo do download do Prisma; o domínio agora está efetivamente permitido e o caminho oficial passou. Não houve mudança de código, arquitetura, funcionalidades, dependências ou migrations.
+- **Resolvido:** dependência de artefatos antigos para demonstrar o build; Client e builds foram renovados após instalação pelos lockfiles.
+- **Testes reprovados nesta rodada:** nenhum nas suítes oficiais executadas. Não restou bloqueio técnico observado para iniciar homologação sintética.
+- **Homologação pendente:** executar e registrar o aceite com os responsáveis da escola, usando dados sintéticos; validar navegadores/dispositivos e rede representativos, fluxos dos perfis, Sala Geral, concorrência, reconexão e comportamento do dia escolar. O cenário automatizado em Chromium não substitui esse aceite.
+- **Revisão de issues/documentação de release pendente:** confrontar os critérios de SI-030/SI-031 e suas dependências com as evidências atuais antes de qualquer alteração de status. As referências ao bloqueio anterior nos documentos de release devem ser reconciliadas nessa revisão; não se atualizou nenhum estado de issue aqui.
+- **Dados reais/produção continuam pendentes:** provisionamento de senhas exclusivas por conta; credenciais separadas de migration/runtime e grants mínimos; banco privado; domínio/TLS/renovação/proxy; firewall; backups externos criptografados com retenção e restauração medida; monitoração e política de logs/dados. Preservados os limites conhecidos de JWT sem refresh/revogação central e histórico exibido pelo cadastro atual.
+
+**Próxima etapa recomendada:** homologação funcional supervisionada com dados sintéticos, registrando evidências e critérios de aceite. Nenhum deploy, push, merge, commit, tag, release, modificação de main/develop ou fechamento remoto de issues foi realizado. Produção exige trabalho e validação próprios posteriores.
+
 ## Revisão final — 04/11/2026 (America/Sao_Paulo)
 
 **Classificação: BLOQUEADO para publicação.** A implementação foi preservada e recebeu correções mínimas de segurança. A reprodução convencional continua impedida pela política de rede, e os requisitos operacionais para dados reais não estão atendidos. Não há declaração de produção pronta nem de aprovação atual das suítes completas.
