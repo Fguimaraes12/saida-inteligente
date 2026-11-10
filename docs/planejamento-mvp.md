@@ -1,5 +1,7 @@
 # Planejamento do MVP — Saída Inteligente
 
+> **Decisões consolidadas em develop:** a implementação usa a entidade Segmento e admite conta SALA individual (`salaId`) ou Sala Geral (`segmentoId`), exclusivamente um vínculo por conta. O login emite cookie HttpOnly, com Argon2id para senhas; os enums de auditoria são CADASTRO, EDICAO, INATIVACAO, REATIVACAO e IMPORTACAO. Estas decisões posteriores prevalecem sobre as referências iniciais a token no JSON, bcrypt e sala obrigatória abaixo. Consulte [API.md](API.md) para o contrato efetivo e [MVP_PROGRESS.md](MVP_PROGRESS.md) para as verificações executadas.
+
 **Disciplina:** Atividades Práticas Interdisciplinares de Extensão II  
 **Curso:** Sistemas de Informação
 

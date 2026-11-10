@@ -1,0 +1,107 @@
+# Homologação sintética. Usar explicitamente -f; não combina com compose.yaml.
+name: saida-homolog
+
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: saida_homolog
+      POSTGRES_USER: si_homolog_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Execute scripts/Initialize-Homolog.ps1}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      TZ: UTC
+    volumes:
+      - homolog_postgres:/var/lib/postgresql/data
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  prepare:
+    image: saida-inteligente-backend:homolog
+    command: [sh, -c, 'npm run prisma:migrate:deploy && node deploy/homolog/bootstrap.mjs']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://si_homolog_admin:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}@postgres:5432/saida_homolog
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?Execute scripts/Initialize-Homolog.ps1}
+      HOMOLOGATION_SYNTHETIC_ONLY: "yes"
+    volumes:
+      - ./deploy/homolog/private:/app/homolog-private
+    networks: [database]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  backend:
+    image: saida-inteligente-backend:homolog
+    build:
+      context: .
+      dockerfile: deploy/homolog/backend.Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgresql://si_homolog_runtime:${POSTGRES_RUNTIME_PASSWORD:?Defina POSTGRES_RUNTIME_PASSWORD}@postgres:5432/saida_homolog
+      JWT_SECRET: ${JWT_SECRET:?Execute scripts/Initialize-Homolog.ps1}
+      JWT_EXPIRES_IN: 8h
+      APP_TIMEZONE: America/Sao_Paulo
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Defina FRONTEND_ORIGIN}
+    networks: [database, application]
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  proxy:
+    image: saida-inteligente-proxy:homolog
+    build:
+      context: .
+      dockerfile: deploy/homolog/frontend.Dockerfile
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Defina PUBLIC_HOST}
+      PUBLIC_WS_ORIGIN: ${PUBLIC_WS_ORIGIN:?Defina PUBLIC_WS_ORIGIN}
+      NGINX_ENVSUBST_FILTER: ^PUBLIC_(HOST|WS_ORIGIN)$$
+    ports:
+      - "127.0.0.1:${HOMOLOG_HTTP_PORT:-8080}:8080"
+    networks: [application, ingress]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, 'wget -Y off -q -O /dev/null --header="Host: $$PUBLIC_HOST" http://127.0.0.1:8080/api/health']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:uid=101,gid=101
+      - /var/cache/nginx:uid=101,gid=101
+      - /etc/nginx/conf.d:uid=101,gid=101
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+networks:
+  # Somente o proxy participa desta rede para a publicação em loopback.
+  ingress: {}
+  database:
+    internal: true
+  application:
+    internal: true
+
+volumes:
+  homolog_postgres:

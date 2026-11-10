@@ -6,3 +6,9 @@ backend/src/generated/prisma/
 .env
 .env.*
 !.env.example
+
+playwright-report/
+test-results/
+
+# Credenciais individuais geradas exclusivamente para homologação sintética.
+deploy/homolog/private/

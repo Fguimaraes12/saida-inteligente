@@ -2,7 +2,9 @@
 
 **Chega de fila na portaria.** Sistema de chamada em tempo real que conecta a portaria, a gestão escolar e a sala de aula no momento da saída dos alunos.
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-blue)
+![Status](https://img.shields.io/badge/status-valida%C3%A7%C3%A3o%20de%20release-blue)
+
+> **Apto para homologação com dados sintéticos:** Prisma, builds e testes oficiais passaram em 05/11/2026. Para Windows/Docker Desktop com Quick Tunnel protegido por e-mail, siga [o guia de homologação](docs/HOMOLOGATION.md). Dados reais e produção continuam sujeitos aos gates de credenciais e operação segura em [PRODUCTION.md](docs/PRODUCTION.md); resultados em [MVP_PROGRESS.md](docs/MVP_PROGRESS.md).
 ![Curso](https://img.shields.io/badge/curso-Sistemas%20de%20Informa%C3%A7%C3%A3o-informational)
 ![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-lightgrey)
 
@@ -68,7 +70,7 @@ erDiagram
     Usuario ||--o{ Gerenciamento : executa
 ```
 
-- `Usuario` usa as roles `GESTAO`, `PORTEIRO` e `SALA`. Para `SALA`, o login individual aponta para uma `Sala`; o login geral aponta para um `Segmento`. O escopo geral existe porque, na implementação inicial, alunos de várias Salas do mesmo Segmento podem aguardar liberação no mesmo ambiente. A API e o Socket.io usarão esse escopo futuramente. Para `GESTAO` e `PORTEIRO`, ambos os vínculos devem permanecer nulos; para `SALA`, deve existir exatamente um dos dois vínculos.
+- `Usuario` usa as roles `GESTAO`, `PORTEIRO` e `SALA`. Para `SALA`, o login individual aponta para uma `Sala`; o login geral aponta para um `Segmento`. O escopo geral existe porque, na implementação inicial, alunos de várias Salas do mesmo Segmento podem aguardar liberação no mesmo ambiente. A API e o Socket.io usam esse escopo para consultas e notificações autorizadas. Para `GESTAO` e `PORTEIRO`, ambos os vínculos devem permanecer nulos; para `SALA`, deve existir exatamente um dos dois vínculos.
 - `Aluno` tem somente a Sala atual em `salaId`: a progressão anual futura poderá atualizá-lo em lote. A remoção normal é lógica, com `ativo = false`; alunos do último ano também podem ser inativados.
 - `Liberacao` é um registro histórico permanente, registrado por um usuário Porteiro. A unicidade de `alunoId` e `dataLiberacao` garante no máximo uma liberação por aluno a cada dia.
 - `Gerenciamento` é a auditoria administrativa das ações de cadastro, edição, inativação, reativação e importação, sem duplicar dados de usuário ou aluno.
@@ -97,185 +99,83 @@ Detalhes adicionais de operação poderão ser documentados futuramente em [`/do
 - Frontend: React + TypeScript + Vite
 - Backend: Node.js + Express + TypeScript
 - Banco de dados: PostgreSQL 17.11 (Docker Compose no ambiente de desenvolvimento) + Prisma ORM
-- Comunicação em tempo real: Socket.io (planejado para uma etapa posterior)
+- Comunicação em tempo real: Socket.io com autenticação e canais por sala/segmento
 
 ---
 
-## ⚙️ Como executar o projeto
+## ⚙️ Como executar o MVP
+
+Requisitos: Node.js 22.12 ou 24+ (validado com 24.22.1), npm, Docker e Docker Compose. O acesso de rede precisa permitir o registro npm, os registros da imagem PostgreSQL e `binaries.prisma.sh` para os comandos padrão do Prisma. Não desabilite TLS nem verificação de checksums para instalar.
 
 ```bash
+# Na raiz do checkout existente
+test -f .env || cp .env.example .env
+test -f backend/.env || cp backend/.env.example backend/.env
+```
 # Clone o repositório
 git clone https://github.com/Fguimaraes12/saida-inteligente.git
 
-# Acesse a pasta
-cd saida-inteligente
+Edite os arquivos ignorados `.env` antes de continuar. Defina uma senha local exclusiva em `POSTGRES_PASSWORD` e use a mesma senha em `backend/.env` → `DATABASE_URL` (codificada na URL se contiver caracteres especiais). Configure `SEED_DEFAULT_PASSWORD` e um `JWT_SECRET` aleatório de pelo menos 32 caracteres. Não use os placeholders dos exemplos nem versione credenciais.
 
-# Terminal 1: PostgreSQL
-docker compose up -d
+```bash
+docker compose up -d --wait
 
-# Terminal 2: backend
 cd backend
-npm install
-
-# Antes de gerar o Prisma Client, crie backend/.env com base em backend/.env.example
-# e configure DATABASE_URL com a senha local do PostgreSQL.
+npm ci
 npm run prisma:generate
-npm run dev
-
-# Terminal 3: frontend
-cd frontend
-npm install
-npm run dev
-```
-
-O backend inicia em `http://localhost:3000` por padrão e disponibiliza `GET /health`.
-Ao iniciar o frontend, o Vite mostra a URL local da aplicação.
-
-### Configuração do backend
-
-O Prisma é a camada de acesso do backend ao PostgreSQL. Crie `backend/.env` a partir de [`backend/.env.example`](./backend/.env.example) e configure a `DATABASE_URL` com a senha local do PostgreSQL antes de executar `npm run prisma:generate`. Esse arquivo não é versionado.
-
-Para autenticação, defina também `JWT_SECRET` com um segredo forte e exclusivo por ambiente. `JWT_EXPIRES_IN` define a validade do access token e aceita uma duração inteira em segundos, minutos, horas ou dias (por exemplo, `8h`, o padrão de desenvolvimento).
-
-Com o PostgreSQL local disponível, inicie a API com `npm run dev`. O backend valida a conexão com o banco antes de abrir a porta HTTP.
-
-### Dados iniciais do MVP
-
-Depois de aplicar as migrations e configurar `SEED_DEFAULT_PASSWORD` em `backend/.env`, execute o seed a partir de `backend`:
-
-```bash
+npm run prisma:validate
+npm run prisma:migrate:deploy
 npm run prisma:seed
+npm run build
+npm run dev
 ```
 
-O seed cria de forma idempotente os segmentos Educação Infantil, Fundamental I, Fundamental II e Ensino Médio, com 16 Salas estruturais. `Sala.serie` permanece numérica e sua apresentação depende do segmento: na Educação Infantil, `2` a `5` representam Infantil II a V; no Fundamental I e II, representam o respectivo ano; e no Ensino Médio, `1` a `3` representam a respectiva série.
-
-Também são criados os 22 usuários de bootstrap previstos para o MVP. A senha compartilhada vem exclusivamente de `SEED_DEFAULT_PASSWORD` e é convertida em hash Argon2id antes de persistir; nenhuma senha pura é armazenada. Essa senha comum é uma solução **temporária** para bootstrap de desenvolvimento/MVP: o projeto deve evoluir para provisionamento e troca individual de credenciais.
-
-O seed é idempotente, preserva registros estruturais existentes e não deve ser executado em produção. Ele não cria Alunos, Liberações ou Gerenciamentos.
-
-### Validação e tratamento de erros
-
-As entradas da API são validadas com Zod antes de chegarem aos controllers. Os schemas específicos de cada endpoint ficam em `backend/src/schemas`.
-
-As respostas de erro seguem este contrato:
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Dados inválidos.",
-    "details": []
-  }
-}
-```
-
-Erros esperados usam `AppError`. Erros inesperados retornam `INTERNAL_ERROR`; detalhes técnicos permanecem somente nos logs do servidor.
-
-### Autenticação
-
-O login é feito por `POST /auth/login`:
-
-```json
-{
-  "usuario": "portaria",
-  "senha": "..."
-}
-```
-
-Com credenciais válidas, a API responde `200 OK` e retorna apenas os dados públicos necessários para o frontend:
-
-```json
-{
-  "usuario": {
-    "id": 2,
-    "usuario": "portaria",
-    "role": "PORTEIRO",
-    "salaId": null,
-    "segmentoId": null
-  }
-}
-```
-
-O token de acesso é enviado exclusivamente no cookie `access_token`, com `HttpOnly`, `SameSite=Lax`, `Secure` habilitado somente em produção, `Path=/` e expiração igual à configurada em `JWT_EXPIRES_IN` (padrão: `8h`). `Path=/` torna o cookie válido para toda a aplicação, não apenas para rotas `/auth`. O frontend não lê nem armazena o JWT: o navegador gerencia o cookie. Em integrações entre origens que exigirem o envio de cookies, use `credentials: 'include'` (ou o equivalente do cliente HTTP). Uma configuração de CORS com credenciais deverá definir origens explícitas; não deve usar `Access-Control-Allow-Origin: *`.
-
-Em produção, a estratégia `SameSite` deve ser revisada conforme a topologia de deploy: para frontend e backend no mesmo site (por exemplo, `app.exemplo.com` e `api.exemplo.com`), `SameSite=Lax` pode continuar adequado. Se estiverem realmente em sites distintos, poderá ser necessário usar `SameSite=None` juntamente com `Secure`.
-
-Usuário inexistente ou senha incorreta retornam o mesmo contrato, para evitar enumeração de contas:
-
-```http
-401 Unauthorized
-```
-
-```json
-{
-  "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "Usuário ou senha inválidos."
-  }
-}
-```
-
-Body inválido retorna `400 VALIDATION_ERROR` no formato de erro já documentado acima. Senhas, `senhaHash` e JWT não são retornados no JSON, e o JWT não deve ser colocado em `localStorage` ou `sessionStorage`.
-
-O acesso atual usa somente access token de curta duração; refresh token, logout e rate limiting são evoluções futuras de hardening. As próximas etapas também adicionarão a validação do cookie, proteção de rotas e autorização por perfil.
-
----
-
-## Migrations do Prisma
-
-O arquivo [`backend/prisma/schema.prisma`](./backend/prisma/schema.prisma) é a fonte da modelagem do banco. O histórico versionado das alterações fica em [`backend/prisma/migrations`](./backend/prisma/migrations).
-
-Com o PostgreSQL local em execução, crie e aplique uma migration de desenvolvimento a partir da pasta `backend`:
+Em outro terminal:
 
 ```bash
-npm run prisma:migrate:dev -- --name nome_da_migration
+cd frontend
+npm ci
+npm run build
+npm run dev -- --port 5173 --strictPort
 ```
 
-Migrations já compartilhadas não devem ser editadas arbitrariamente. O comando `prisma db push` não faz parte do fluxo normal deste projeto.
+O backend usa a porta 3000 (`PORT` configurável), conecta ao PostgreSQL antes de escutar e serve `/health`. O Vite encaminha `/api` e `/socket.io` ao backend, evitando manipulação de JWT no frontend. Use o mesmo hostname em `FRONTEND_ORIGIN` e no navegador; o padrão é `http://localhost:5173`. A navegação apresenta `/gestao`, `/portaria` ou `/sala` conforme o perfil, restaurando a sessão pelo cookie HttpOnly.
 
----
+### Bootstrap temporário
 
-## PostgreSQL para desenvolvimento local
+O seed idempotente cria 4 segmentos, 16 salas e 22 usuários, sem alunos de demonstração:
 
-### Pré-requisito
+- `gestao` e `portaria`;
+- Sala Geral por segmento: `infantil_geral`, `fund1_geral`, `fund2_geral`, `medio_geral`;
+- Salas: `infantil_2` a `infantil_5`, `fund1_1ano` a `fund1_5ano`, `fund2_6ano` a `fund2_9ano`, `medio_1ano` a `medio_3ano`.
 
-Docker com Docker Compose disponível.
+A senha compartilhada vem exclusivamente de `SEED_DEFAULT_PASSWORD` e é persistida como Argon2id. Reexecutar o seed preserva as senhas existentes; alterar a variável não redefine contas já criadas. O seed é bloqueado em produção. Esta é uma solução temporária de bootstrap para desenvolvimento/MVP: troca individual, recuperação de senha e provisionamento seguro ainda exigem evolução antes de uso operacional com credenciais individuais.
 
-### Configuração
+### Testes
 
-Crie o arquivo `.env` local na raiz do projeto com base em [`.env.example`](./.env.example). Defina uma senha local segura para `POSTGRES_PASSWORD`; o arquivo `.env` não é versionado.
-
-### Inicialização
+A partir de `backend`, com PostgreSQL acessível:
 
 ```bash
-docker compose up -d
+npm run test:config
+npm test
+npm run test:e2e
 ```
 
-### Verificação
+`npm run test:config` confere os guardas de produção, cookies e bloqueio do seed. `npm test` cria um banco temporário, aplica as migrations, executa o seed duas vezes e valida HTTP, cookies, autorização, auditoria, importação atômica, constraints e Socket.io. O teste de data cobre a virada do dia em São Paulo. Os testes usam exclusivamente a CLI padrão, sem runner externo em `/tmp`. O usuário de banco para testes precisa de permissão `CREATEDB`; os bancos temporários são removidos ao final. Não execute testes contra uma instância de produção.
 
-```bash
-docker compose ps
-```
+Para os testes E2E, instale primeiro o Chromium do Playwright a partir de `frontend` (`npx playwright install --with-deps chromium`), ou defina `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` para um Chromium já instalado. O runner de `backend` gera credenciais aleatórias, prepara outro banco temporário e sobe API/Vite nas portas 3100/5180. Valida no navegador Gestão, Portaria, Sala, Sala Geral, isolamento, chamada duplicada, recuperação após ficar offline, restauração de sessão e logout. Não reutiliza serviços nem banco de desenvolvimento. Traces de falhas podem conter dados/cookies de teste: ficam ignorados em `frontend/test-results/`.
 
-### Logs
+### Migrations e persistência
 
-```bash
-docker compose logs postgres
-```
+O schema está em `backend/prisma/schema.prisma`; mantenha migrations compartilhadas imutáveis. Para uma mudança futura de modelagem, use `npm run prisma:migrate:dev -- --name nome_da_migration` em desenvolvimento. `prisma db push` não faz parte do fluxo normal.
 
-### Encerramento
+A porta do Compose é local (`127.0.0.1`), e a conta configurada por POSTGRES_USER é administrativa de desenvolvimento; não usá-la como runtime de produção. `docker compose restart postgres` preserva os dados no volume. `docker compose down` encerra o serviço preservando o volume. **`docker compose down -v` apaga os dados locais**; não use para reiniciar o ambiente.
 
-```bash
-docker compose down
-```
+### Contratos e limites
 
-### Reset completo
+Veja [API REST, segurança e eventos Socket.io](docs/API.md), [backlog consultado](docs/BACKLOG_REFERENCE.md), [validações e progresso](docs/MVP_PROGRESS.md) e [preparação de release](docs/RELEASE_MVP.md). O planejamento inicial permanece em [docs/planejamento-mvp.md](docs/planejamento-mvp.md); em divergências, mantêm-se as decisões consolidadas em develop: Segmento, Sala Geral, enums de auditoria, cookie HttpOnly e Argon2id.
 
-```bash
-docker compose down -v
-```
-
-`-v` remove o volume e **APAGA os dados locais do PostgreSQL**.
+Em produção, use HTTPS e frontend/API no mesmo site, com reverse proxy de `/api` e `/socket.io`. FRONTEND_ORIGIN HTTPS explícita agora é exigida na inicialização. O [roteiro de produção](docs/PRODUCTION.md) cobre ambiente, exemplos Nginx/systemd, permissões, banco, credenciais, backup/restauração, monitoramento e `npm run test:production` para smoke local do proxy. Este repositório fornece Compose para o PostgreSQL de desenvolvimento, não provisionamento de produção. O histórico é permanente, mas nomes e sala exibidos em registros antigos acompanham o cadastro atual conforme a modelagem existente. Não há relatórios avançados, edição de chamadas, revogação central de tokens, refresh token nem gestão de credenciais individuais. Consulte os resultados realmente executados em MVP_PROGRESS.md antes de publicar uma release.
 
 ---
 
