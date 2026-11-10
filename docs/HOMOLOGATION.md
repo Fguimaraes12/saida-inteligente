@@ -87,6 +87,35 @@ Abra a URL no navegador. Primeiro autentique o **e-mail autorizado por PIN da Cl
 
 O TLS público é verificado normalmente no navegador e o cloudflared mantém seu transporte seguro. O salto HTTP intencional é somente do processo local cloudflared ao Nginx em loopback/Docker; não há flag para ignorar certificado. Frontend, API `/api` e `/socket.io` compartilham a mesma origem pública. O cookie de sessão permanece HttpOnly/Secure/SameSite=Lax. O Nginx encaminha o upgrade WebSocket e o backend mantém autenticação/escopo dos canais.
 
+## Alternativa: Tailscale Funnel (URL fixa)
+
+O Quick Tunnel protegido é temporário: a URL muda a cada sessão e, na validação de 10/11/2026 em Windows, o login do app falhou por trás da proteção por PIN. As chamadas `fetch` receberam um redirecionamento para `login.trycloudflare.com`, bloqueado pela CSP da aplicação (`connect-src 'self'`), e a resposta `Unauthorized` do cloudflared chegou ao frontend como texto, não JSON (`Unexpected token ... is not valid JSON`). Para uma demonstração com URL estável, o Tailscale Funnel publica o mesmo Nginx em `127.0.0.1:8080` com HTTPS válido e sem esse intermediário. O guia do Quick Tunnel acima continua válido; escolha um dos dois, nunca os dois ao mesmo tempo.
+
+**Requisitos:** conta Tailscale gratuita, app Tailscale instalado e conectado (`tailscale up`), **MagicDNS** e **HTTPS Certificates** habilitados em https://login.tailscale.com/admin/dns e o Funnel liberado para o computador. Na primeira execução, `tailscale funnel` imprime o link de aprovação se o Funnel ainda não estiver habilitado.
+
+```powershell
+tailscale funnel --bg 8080
+```
+
+O comando imprime `https://<computador>.<tailnet>.ts.net/`; esse nome é estável. Para desligar o acesso público: `tailscale funnel --https=443 off`. Confira com `tailscale funnel status`.
+
+`Set-HomologOrigin.ps1` aceita somente `*.trycloudflare.com`. Para o Funnel, defina as três variáveis de origem de uma vez (substitua o host, sem `https://` nem barra final) e recrie backend e proxy:
+
+```powershell
+$h = '<computador>.<tailnet>.ts.net'
+$f = '.\.env.homolog'
+$l = Get-Content $f
+$l = $l -replace '^FRONTEND_ORIGIN=.*', "FRONTEND_ORIGIN=https://$h"
+$l = $l -replace '^PUBLIC_HOST=.*', "PUBLIC_HOST=$h"
+$l = $l -replace '^PUBLIC_WS_ORIGIN=.*', "PUBLIC_WS_ORIGIN=wss://$h"
+Set-Content $f $l -Encoding utf8NoBOM
+docker compose --env-file .env.homolog -f compose.homolog.yaml up -d --no-deps --force-recreate --wait backend proxy
+```
+
+Como o host é fixo, essa configuração é feita uma única vez. Teste localmente com `curl.exe -s -o NUL -w "%{http_code}`n" -H "Host: $h" http://127.0.0.1:8080/api/health` (esperado `200`) e depois abra a URL pública: a tela de login do sistema aparece direto.
+
+**Cuidados.** O Funnel é público e **não** tem o filtro por e-mail do Quick Tunnel protegido: a proteção é o login do sistema, com o limite de tentativas do Nginx (5/min por IP). Use somente dados sintéticos, mantenha-o ligado só durante a demonstração e desligue depois. O Tailscale aplica limites de banda não publicados no Funnel. O nome da sua rede `.ts.net` pode aparecer em registros públicos de certificados. O computador, o Docker Desktop e os containers precisam estar ativos. Isto continua sendo homologação sintética, não uma aprovação de infraestrutura para produção.
+
 ## Conferir antes de convidar os testadores
 
 ```powershell
@@ -126,6 +155,8 @@ Não remova um arquivo de credenciais se pretende preservar seu banco. Para tamb
 ## Limitações e solução de problemas
 
 - **Quick Tunnel:** temporário, sem garantia de disponibilidade, URL muda, limite de 200 requisições simultâneas e sem SSE. Socket.io usa WebSocket/polling; não depende de SSE. A autenticação por e-mail exige navegador interativo. [Referência oficial](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) e [anúncio da proteção por e-mail](https://developers.cloudflare.com/changelog/post/2026-10-02-protected-quick-tunnels/), consultados em 05/11/2026.
+- **522 no retorno do PIN ou `Unauthorized` no login:** em uma rede Windows, o transporte QUIC padrão do cloudflared ficou instável (522 em `/.cloudflared/qt-auth/callback`). Antes de iniciar o túnel, execute `$env:TUNNEL_TRANSPORT_PROTOCOL = 'http2'` na mesma janela do PowerShell, e se ainda falhar `$env:TUNNEL_EDGE_IP_VERSION = '4'`. A URL muda a cada túnel; repita `Set-HomologOrigin.ps1` e a recriação de backend/proxy. Se o login do app continuar falhando atrás da proteção por PIN, use a alternativa Tailscale Funnel acima. Não remova `--allowed-mail` para contornar.
+- **Proxy reiniciando com `could not build server_names_hash`:** o host do Quick Tunnel (por exemplo, quatro palavras) excede o bucket padrão do Nginx. `deploy/homolog/nginx.conf` define `server_names_hash_bucket_size 128`; reconstrua o proxy com `docker compose --env-file .env.homolog -f compose.homolog.yaml build proxy` se usar uma imagem antiga.
 - **444 / conexão fechada:** o Host ainda não corresponde a `PUBLIC_HOST`. Atualize a URL e recrie backend/proxy. Acesso direto por `http://localhost:8080` não é o fluxo de login: Secure exige HTTPS.
 - **403 / cookie não persiste:** use exatamente a URL HTTPS atual, sem misturar hosts; confira a recriação e `FRONTEND_ORIGIN`. Não relaxe CORS, origem ou cookie. Novo host exige novo PIN/login.
 - **prepare falhou:** a API não inicia. Confira logs e se volume e arquivo privado pertencem à mesma inicialização. Se um bootstrap foi interrompido, use a limpeza sintética; não tente adaptar um banco real ou inventar histórico de migrations.
